@@ -1,0 +1,304 @@
+main > .container {
+    padding: 70px 15px 20px;
+}
+
+.footer {
+    background-color: #f5f5f5;
+    font-size: .9em;
+    height: 60px;
+}
+
+.footer > .container {
+    padding-right: 15px;
+    padding-left: 15px;
+}
+
+.not-set {
+    color: #c55;
+    font-style: italic;
+}
+
+/* add sorting icons to gridview sort links */
+a.asc:after, a.desc:after {
+    content: '';
+    left: 3px;
+    display: inline-block;
+    width: 0;
+    height: 0;
+    border: solid 5px transparent;
+    margin: 4px 4px 2px 4px;
+    background: transparent;
+}
+
+a.asc:after {
+    border-bottom: solid 7px #212529;
+    border-top-width: 0;
+}
+
+a.desc:after {
+    border-top: solid 7px #212529;
+    border-bottom-width: 0;
+}
+
+.grid-view th,
+.grid-view td:last-child {
+    white-space: nowrap;
+}
+
+.grid-view .filters input,
+.grid-view .filters select {
+    min-width: 50px;
+}
+
+.hint-block {
+    display: block;
+    margin-top: 5px;
+    color: #999;
+}
+
+.error-summary {
+    color: #a94442;
+    background: #fdf7f7;
+    border-left: 3px solid #eed3d7;
+    padding: 10px 20px;
+    margin: 0 0 15px 0;
+}
+
+/* align the logout "link" (button in form) of the navbar */
+.nav li > form > button.logout {
+    padding-top: 7px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+@media(max-width:767px) {
+    .nav li > form > button.logout {
+        display:block;
+        text-align: left;
+        width: 100%;
+        padding: 10px 0;
+    }
+}
+
+.nav > li > form > button.logout:focus,
+.nav > li > form > button.logout:hover {
+    text-decoration: none;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.nav > li > form > button.logout:focus {
+    outline: none;
+}
+
+.test-results-page {
+    padding: 20px 0;
+}
+
+.test-results-page .answer-block {
+    background: #f4f4f4;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #6c757d;
+}
+
+.test-results-page .question-title {
+    color: #333;
+    margin-bottom: 0;
+}
+
+.test-results-page .question-number {
+    color: #6c757d;
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.test-results-page .answer-content {
+    margin-top: 15px;
+}
+
+.test-results-page .user-answer {
+    background: #fff !important;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    white-space: normal;
+    word-wrap: break-word;
+    margin: 0 !important;
+    padding: 10px !important;
+    text-align: left !important;
+    width: 100% !important;
+    display: block !important;
+}
+
+.test-results-page .test-results-body .user-answer,
+.test-results-page .answer-content .user-answer {
+    padding: 10px !important;
+    margin: 0 !important;
+    text-indent: 0 !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+}
+
+.test-results-page .no-answer {
+    padding: 10px 0;
+    font-style: italic;
+}
+
+.test-results-page .answer-separator {
+    margin: 30px 0;
+    border-color: #dee2e6;
+}
+
+.test-results-page .results-footer {
+    background: #f4f4f4;
+    margin: -20px -20px 0 -20px;
+    padding: 20px;
+    border-radius: 0 0 8px 8px;
+}
+
+.test-results-page .info-block h6 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.test-results-card {
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    border: none;
+}
+
+.test-results-header {
+    background: #6c757d;
+    color: white;
+    border-bottom: none;
+}
+
+.test-results-page .status-badge .badge-lg {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+}
+
+.test-results-alert {
+    border-radius: 6px;
+}
+
+.test-results-page .test-completion-info .alert {
+    border-left: 4px solid #6c757d;
+}
+
+@media (max-width: 768px) {
+    .test-results-page {
+        padding: 10px 0;
+    }
+
+    .test-results-page .answer-block {
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+
+    .test-results-page .question-title {
+        font-size: 1.1rem;
+    }
+
+    .test-results-page .card-header .d-flex {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+
+    .test-results-page .status-badge {
+        margin-top: 10px;
+    }
+}
+.form-group .invalid-feedback,
+.form-group .help-block {
+    display: block !important;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 0.875em;
+    color: #dc3545;
+}
+
+.notification-text {
+    word-break: break-word;
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+/* Highlight only the count number in urgent calls - orange */
+.urgent-count-highlight {
+    background-color: #fd7e14;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    font-size: 0.85em;
+}
+
+.status-edit-container {
+    min-width: 150px;
+}
+.status-edit select {
+    margin-bottom: 5px;
+}
+.edit-status-btn {
+    padding: 2px 6px;
+    color: #6c757d;
+}
+.edit-status-btn:hover {
+    color: #495057;
+}
+
+/* Select2 multiple search field - force visible border and width */
+.select2-container--krajee .select2-search--inline .select2-search__field,
+.select2-container--default .select2-search--inline .select2-search__field,
+.select2-selection--multiple .select2-search--inline .select2-search__field {
+    border: 1px solid #ced4da !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    min-width: 90px !important;
+    width: auto !important;
+    margin: 2px !important;
+    background-color: #fff !important;
+}
+
+.select2-container--krajee .select2-search--inline .select2-search__field:focus,
+.select2-container--default .select2-search--inline .select2-search__field:focus {
+    border-color: #80bdff !important;
+    outline: 0 !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+}
+
+/* Better container padding */
+.select2-container--krajee .select2-selection--multiple,
+.select2-container--default .select2-selection--multiple {
+    min-height: 38px !important;
+    padding: 3px 5px !important;
+}
+
+/* Selected items spacing */
+.select2-container--krajee .select2-selection--multiple .select2-selection__choice,
+.select2-container--default .select2-selection--multiple .select2-selection__choice {
+    margin: 3px 3px 3px 0 !important;
+}
+
+.cc-scripts-accordion .cc-script-text {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.cc-scripts-accordion .cc-script-text p,
+.cc-scripts-accordion .cc-script-text ul,
+.cc-scripts-accordion .cc-script-text ol {
+    margin: 0 0 8px;
+    max-width: 100%;
+}
+
+.cc-scripts-accordion .cc-script-text img,
+.cc-scripts-accordion .cc-script-text table {
+    max-width: 100%;
+    height: auto;
+}
+
+.cc-scripts-accordion .cc-script-text ul,
+.cc-scripts-accordion .cc-script-text ol {
+    padding-left: 20px;
+}

@@ -1,0 +1,2238 @@
+/**
+ * Mobile Responsive Tables & Filters - CRM System
+ * Shared styles for GridView mobile adaptations
+ */
+
+/* ========================================
+   MOBILE SIDEBAR FIX (AdminLTE)
+   ======================================== */
+
+/* Hide sidebar menu on desktop - show only on mobile */
+@media screen and (min-width: 992px) {
+    .sidebar-menu-mobile {
+        display: none !important;
+    }
+
+    /*.main-sidebar {
+        width: 4.6rem !important;
+    }*/
+
+    /* Hide hamburger menu button on desktop */
+    .navbar-nav .nav-link[data-widget="pushmenu"] {
+        display: none !important;
+    }
+
+    /* Hide sidebar close button on desktop */
+    .sidebar-close-btn {
+        display: none !important;
+    }
+}
+
+@media screen and (max-width: 991.98px) {
+    /* Hide navbar menu items on mobile - they will be in sidebar */
+    .navbar-nav .nav-item.d-none.d-sm-inline-block {
+        display: none !important;
+    }
+
+    /* Hide dropdown menu items on mobile */
+    .navbar-nav .nav-item.dropdown {
+        display: none !important;
+    }
+
+    /* Keep only hamburger, user info, logout, and control sidebar visible */
+    .navbar-nav .nav-item:has([data-widget="pushmenu"]),
+    .navbar-nav .nav-item:has([data-widget="navbar-search"]),
+    .navbar-nav .nav-item:has(.far.fa-comments),
+    .navbar-nav .nav-item:has([data-widget="control-sidebar"]),
+    .navbar-nav .nav-item.d-flex.align-items-center,
+    .navbar-nav .nav-item:has([data-method="post"]) {
+        display: flex !important;
+    }
+
+    /* Ensure sidebar works correctly on mobile */
+    .main-sidebar {
+        position: fixed !important;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        width: 250px !important;
+        z-index: 1038 !important;
+        margin-left: -250px;
+        transition: margin-left 0.3s ease-in-out;
+    }
+
+    /* When sidebar is open (pushmenu adds this class) */
+    body.sidebar-open .main-sidebar {
+        margin-left: 0 !important;
+    }
+
+    /* Backdrop for mobile sidebar */
+    body.sidebar-open::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1037;
+        animation: fadeIn 0.3s;
+    }
+
+    /* Prevent body scroll when sidebar is open */
+    body.sidebar-open {
+        overflow: hidden;
+    }
+
+    /* Content should not have left margin on mobile */
+    .content-wrapper,
+    .main-footer {
+        margin-left: 0 !important;
+    }
+
+    /* Mobile sidebar close button */
+    .sidebar-close-btn {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 7px;
+        right: 7px;
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        border-radius: 50%;
+        color: #c2c7d0;
+        font-size: 24px;
+        cursor: pointer;
+        z-index: 1040;
+        transition: all 0.2s;
+        line-height: 1;
+        padding: 0;
+    }
+
+    .sidebar-close-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+    }
+
+    .sidebar-close-btn:active {
+        transform: scale(0.95);
+    }
+
+    .sidebar-close-btn span{
+        padding: 18px 13px 18px 30px;
+        margin-right: 17px;
+    }
+
+    /* Sidebar menu styling for mobile - NO ICONS, FULL WIDTH */
+    .main-sidebar .nav-sidebar {
+        padding-top: 10px;
+    }
+
+    .main-sidebar .nav-sidebar .nav-item {
+        margin-bottom: 0;
+        width: 100%;
+    }
+
+    .main-sidebar .nav-sidebar .nav-link {
+        padding: 15px 20px;
+        color: #c2c7d0;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        width: 100% !important;
+        white-space: nowrap;
+    }
+
+    .main-sidebar .nav-sidebar .nav-link:hover {
+        background-color: rgba(255,255,255,0.1);
+        color: #fff;
+    }
+
+    .main-sidebar .nav-sidebar .nav-link p {
+        margin: 0;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Override AdminLTE collapsed sidebar styles on mobile */
+    body.sidebar-collapse .main-sidebar .nav-sidebar .nav-link,
+    body.sidebar-mini.sidebar-collapse .main-sidebar .nav-sidebar .nav-link {
+        width: 100% !important;
+    }
+
+    body.sidebar-collapse .main-sidebar .nav-sidebar .nav-link p,
+    body.sidebar-mini.sidebar-collapse .main-sidebar .nav-sidebar .nav-link p {
+        display: block !important;
+        white-space: nowrap;
+    }
+}
+
+/* Mobile filter button - hidden on desktop */
+.mobile-filter-btn {
+    display: none;
+}
+
+/* Offcanvas filter panel */
+.offcanvas-filter {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 85%;
+    max-width: 400px;
+    height: 100%;
+    background-color: #fff;
+    box-shadow: -2px 0 8px rgba(0,0,0,0.15);
+    z-index: 9999;
+    transition: right 0.3s ease-in-out;
+    overflow-y: auto;
+}
+
+.offcanvas-filter.show {
+    right: 0;
+}
+
+.offcanvas-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    z-index: 9998;
+    display: none;
+    animation: fadeIn 0.3s;
+}
+
+.offcanvas-backdrop.show {
+    display: block;
+}
+
+.offcanvas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+.offcanvas-header h3 {
+    margin: 0;
+    font-size: 1.5em;
+    color: #333;
+}
+
+.offcanvas-close {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.offcanvas-close:hover {
+    color: #000;
+}
+
+.offcanvas-body {
+    padding: 20px;
+}
+
+.offcanvas-filter-group {
+    margin-bottom: 20px;
+}
+
+.offcanvas-filter-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #495057;
+    font-size: 14px;
+}
+
+.offcanvas-filter-group input,
+.offcanvas-filter-group select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: #fff;
+    display: block !important;
+}
+
+.offcanvas-filter-group select {
+    height: auto;
+    appearance: auto;
+}
+
+.offcanvas-footer {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding: 20px;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.offcanvas-footer button {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-apply-filters {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-apply-filters:hover {
+    background-color: #218838;
+}
+
+.btn-reset-filters {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-reset-filters:hover {
+    background-color: #5a6268;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Action details specific styles */
+.action-details {
+    display: none;
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    margin: 10px 0;
+    border-left: 3px solid #6c757d;
+}
+
+/* ========================================
+   MOBILE RESPONSIVE STYLES
+   ======================================== */
+@media screen and (max-width: 768px) {
+    /* Prevent horizontal scroll */
+    body {
+        overflow-x: hidden !important;
+        max-width: 100vw;
+    }
+
+    .wrapper,
+    .content-wrapper {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+    }
+
+    /* Constrain card wrapper */
+    .card {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+    }
+
+    .card-body {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        padding: 10px !important;
+    }
+
+    /* Fix sidebar margin on mobile - higher specificity */
+    body.sidebar-mini.sidebar-collapse .content-wrapper,
+    body.sidebar-mini.sidebar-collapse .main-footer,
+    .sidebar-mini.sidebar-collapse .content-wrapper,
+    .sidebar-mini.sidebar-collapse .main-footer {
+        margin-left: 0 !important;
+        max-width: 100vw;
+    }
+
+    /* Show mobile filter button */
+    .mobile-filter-btn {
+        display: inline-block;
+        margin-left: 10px;
+    }
+
+    /* Constrain table and grid-view */
+    .grid-view,
+    .table-responsive {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+    }
+
+    .table {
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    /* Table containing action-details must not expand */
+    .table:has(tr.action-details-row) {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: auto !important;
+    }
+
+    /* Tbody should also be constrained */
+    .table tbody {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Hide table headers including filters */
+    .table thead {
+        display: none;
+    }
+
+    /* Make table rows display as cards (EXCEPT action-details-row) */
+    .table tbody tr:not(.action-details-row) {
+        display: block;
+        margin-bottom: 15px;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        background: #fff;
+    }
+
+    /* Keep action-details-row as table row but convert to block on mobile */
+    .table tbody tr.action-details-row {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .table tbody tr.action-details-row td {
+        display: block !important;
+        padding: 0 !important;
+        border: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
+
+    .table tbody tr.action-details-row td::before {
+        display: none !important;
+    }
+
+    /* Make table cells display as blocks (EXCEPT in action-details-row) */
+    .table tbody tr:not(.action-details-row) td {
+        display: block;
+        text-align: left !important;
+        padding: 10px 15px;
+        border: none;
+        border-bottom: 1px solid #f0f0f0;
+        position: relative;
+        padding-left: 50%;
+        min-height: 40px;
+    }
+
+    .table tbody tr:not(.action-details-row) td:last-child {
+        border-bottom: none;
+    }
+
+    /* Add labels before each cell using data-label attribute */
+    .table tbody tr:not(.action-details-row) td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 15px;
+        top: 10px;
+        font-weight: bold;
+        color: #495057;
+        white-space: normal;
+        max-width: 45%;
+        line-height: 1.2;
+        word-wrap: break-word;
+    }
+
+    /* Hide serial number column on mobile */
+    .table tbody tr:not(.action-details-row) td:first-child {
+        display: none;
+    }
+
+    /* Action column full width */
+    .table tbody tr:not(.action-details-row) td:last-child {
+        padding-left: 15px;
+        text-align: center !important;
+    }
+
+    .table tbody tr:not(.action-details-row) td:last-child::before {
+        display: none;
+    }
+
+    /* Make action icons more touchable */
+    .table tbody tr:not(.action-details-row) td:last-child a {
+        display: inline-block;
+        padding: 5px;
+        margin: 3px;
+    }
+
+    /* Grid summary and pager */
+    .summary {
+        padding: 10px 15px;
+        font-size: 0.9em;
+    }
+
+    .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    /* Buttons layout */
+    .mb-2, .row.mb-2 {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .mb-2 .btn, .row.mb-2 .btn {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    /* ========================================
+       DETAIL VIEW WIDGET (for employee/package views)
+       ======================================== */
+
+    .detail-view {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: fixed !important;
+        font-size: 14px;
+    }
+
+    .detail-view thead {
+        display: none;
+    }
+
+    .detail-view tbody tr {
+        display: table-row !important;
+        border: none;
+        box-shadow: none;
+        margin: 0;
+    }
+
+    .detail-view th {
+        display: table-cell !important;
+        background: #f8f9fa;
+        border: none;
+        padding: 10px 12px;
+        font-weight: 600;
+        width: 130px !important;
+        max-width: 130px !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 14px;
+        vertical-align: middle;
+        word-wrap: break-word;
+    }
+
+    .detail-view td {
+        display: table-cell !important;
+        border: none;
+        padding: 10px 12px;
+        border-bottom: 1px solid #f0f0f0;
+        width: auto !important;
+        max-width: none !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        word-break: break-word;
+        font-size: 14px;
+    }
+
+    .detail-view tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Links in detail view */
+    .detail-view a {
+        word-break: break-all;
+        font-size: 14px;
+    }
+
+    /* ========================================
+       PACKAGE DOCUMENTS SECTION
+       ======================================== */
+
+    /* Package documents - responsive grid */
+    .row > [class*="col-"] {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
+
+    /* Document cards in packages */
+    .card.shadow-sm {
+        margin-bottom: 10px;
+    }
+
+    .card.shadow-sm .card-body {
+        padding: 8px !important;
+        min-height: 150px !important;
+    }
+
+    .card.shadow-sm img {
+        max-height: 120px;
+        object-fit: cover;
+    }
+
+    /* ========================================
+       MODAL IMPROVEMENTS
+       ======================================== */
+
+    /* Task and Package modals on mobile */
+    .task-modal .modal-dialog,
+    .package-modal .modal-dialog {
+        margin: 10px;
+        max-width: calc(100% - 20px);
+    }
+
+    .task-modal .modal-body,
+    .package-modal .modal-body {
+        max-height: 70vh;
+        overflow-y: auto;
+        padding: 15px;
+    }
+
+    .task-modal .labels_item,
+    .package-modal .labels_item {
+        margin-bottom: 15px;
+    }
+
+    /* Modal form groups */
+    .modal-body .form-group {
+        margin-bottom: 15px;
+    }
+
+    .modal-body .form-group label {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+
+    .modal-body .form-control,
+    .modal-body input[type="text"],
+    .modal-body input[type="email"],
+    .modal-body input[type="number"],
+    .modal-body select,
+    .modal-body textarea {
+        font-size: 16px !important;
+        padding: 10px 12px !important;
+        min-height: 44px;
+    }
+
+    .modal-body select {
+        height: 44px !important;
+    }
+
+    .modal-body textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+
+    /* Modal buttons */
+    .modal-footer .btn {
+        padding: 10px 16px;
+        font-size: 16px;
+        min-width: 100px;
+    }
+
+    /* ========================================
+       TRACKING STATUS MODAL
+       ======================================== */
+
+    .tracking-status .table {
+        font-size: 14px;
+    }
+
+    .tracking-status .table td {
+        padding: 8px 10px;
+        vertical-align: top;
+        word-break: break-word;
+    }
+
+    .tracking-status .table td:first-child {
+        width: 35%;
+        font-weight: 600;
+        background: #f8f9fa;
+    }
+
+    .badge-lg {
+        font-size: 0.9rem !important;
+        padding: 6px 10px !important;
+    }
+
+    /* ========================================
+       FORM ELEMENTS - CRM SPECIFIC
+       ======================================== */
+
+    /* All form inputs unified sizing */
+    .form-group label,
+    .form-group .control-label {
+        font-size: 16px !important;
+        font-weight: 700;
+        margin-bottom: 8px;
+        display: block;
+        word-wrap: break-word;
+    }
+
+    .form-group .hint-block,
+    .form-group .help-block,
+    .form-group .invalid-feedback {
+        font-size: 14px !important;
+        line-height: 1.5;
+        margin-top: 6px;
+        word-wrap: break-word;
+    }
+
+    .form-group input[type="text"],
+    .form-group input[type="email"],
+    .form-group input[type="password"],
+    .form-group input[type="url"],
+    .form-group input[type="number"],
+    .form-group input[type="date"],
+    .form-group input[type="datetime-local"],
+    .form-group select,
+    .form-control {
+        font-size: 16px !important;
+        padding: 10px 12px !important;
+        line-height: 1.5;
+        min-height: 44px;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .form-group select,
+    select.form-control {
+        padding: 9px 12px !important;
+        height: 44px !important;
+    }
+
+    .form-group textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+
+    /* File input widgets */
+    .file-input {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .file-preview {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    /* Input groups */
+    .form-group .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .form-group .input-group .form-control {
+        width: 100%;
+        max-width: 100%;
+        display: block;
+    }
+
+    .form-group .input-group-append {
+        display: flex;
+        width: 100%;
+        gap: 10px;
+        margin-left: 0;
+    }
+
+    .form-group .input-group-append .btn {
+        flex: 1;
+        padding: 10px 8px;
+    }
+
+    /* Form button groups */
+    .form-group .btn-group {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: 10px;
+    }
+
+    .form-group .btn-group .btn {
+        width: 100%;
+        margin: 0;
+    }
+
+    /* ========================================
+       FORM SPECIFIC IMPROVEMENTS
+       ======================================== */
+
+    /* Panel styling for forms */
+    .panel {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        background: #fff;
+    }
+
+    .panel-heading {
+        background: #f8f9fa;
+        padding: 15px;
+        border-bottom: 1px solid #ddd;
+        border-radius: 8px 8px 0 0;
+        position: relative;
+    }
+
+    .panel-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .panel-body {
+        padding: 15px;
+    }
+
+    /* Dynamic form improvements */
+    .labels_item .card-header {
+        background: #f8f9fa;
+        padding: 10px 15px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .labels_item .card-body {
+        padding: 15px;
+    }
+
+    /* Button improvements */
+    .add-label,
+    .remove-label {
+        padding: 6px 12px;
+        font-size: 14px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+    }
+
+    .add-label {
+        background: #28a745;
+        color: white;
+    }
+
+    .remove-label {
+        background: #dc3545;
+        color: white;
+    }
+
+    /* Select2 improvements for mobile */
+    .select2-container {
+        width: 100% !important;
+    }
+
+    .select2-container .select2-selection--single {
+        height: 44px !important;
+        padding: 8px 12px !important;
+        font-size: 16px !important;
+    }
+
+    .select2-container .select2-selection--single .select2-selection__rendered {
+        line-height: 28px !important;
+    }
+
+    .select2-container .select2-selection--single .select2-selection__arrow {
+        height: 42px !important;
+    }
+
+    /* DateTime picker improvements */
+    .bootstrap-datetimepicker-widget {
+        max-width: 90vw !important;
+    }
+
+    .bootstrap-datetimepicker-widget table {
+        font-size: 14px;
+    }
+
+    /* ========================================
+       FORM SPECIFIC IMPROVEMENTS
+       ======================================== */
+
+    /* Tasks and Packages form mobile styles */
+    .tasks-form .form-group label,
+    .packages-form .form-group label {
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        margin-bottom: 8px !important;
+        display: block !important;
+        word-wrap: break-word !important;
+    }
+
+    .tasks-form .form-control,
+    .packages-form .form-control {
+        font-size: 16px !important;
+        padding: 10px 12px !important;
+        min-height: 44px !important;
+    }
+
+    .tasks-form .select2-container .select2-selection--single,
+    .packages-form .select2-container .select2-selection--single {
+        height: 44px !important;
+        padding: 8px 12px !important;
+        font-size: 16px !important;
+    }
+
+    .tasks-form .datetime-picker .form-control,
+    .packages-form .datetime-picker .form-control {
+        font-size: 16px !important;
+        padding: 10px 12px !important;
+        min-height: 44px !important;
+    }
+
+    .tasks-form textarea,
+    .packages-form textarea {
+        min-height: 80px !important;
+        resize: vertical !important;
+    }
+
+    /* Panel styling for forms */
+    .panel {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        background: #fff;
+    }
+
+    .panel-heading {
+        background: #f8f9fa;
+        padding: 10px 15px !important;
+        border-bottom: 1px solid #ddd;
+        border-radius: 8px 8px 0 0;
+        position: relative;
+    }
+
+    .panel-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .panel-body {
+        padding: 10px !important;
+    }
+
+    /* Dynamic form improvements */
+    .labels_item .card-header {
+        background: #f8f9fa;
+        padding: 8px 12px !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px !important;
+    }
+
+    .labels_item .card-body {
+        padding: 10px !important;
+    }
+
+    /* Button improvements */
+    .add-label,
+    .remove-label {
+        padding: 8px 12px !important;
+        font-size: 14px !important;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+    }
+
+    .add-label {
+        background: #28a745;
+        color: white;
+    }
+
+    .remove-label {
+        background: #dc3545;
+        color: white;
+    }
+
+    /* Select2 improvements for mobile */
+    .select2-container {
+        width: 100% !important;
+    }
+
+    .select2-container .select2-selection--single {
+        height: 44px !important;
+        padding: 8px 12px !important;
+        font-size: 16px !important;
+    }
+
+    .select2-container .select2-selection--single .select2-selection__rendered {
+        line-height: 28px !important;
+    }
+
+    .select2-container .select2-selection--single .select2-selection__arrow {
+        height: 42px !important;
+    }
+
+    /* DateTime picker improvements */
+    .bootstrap-datetimepicker-widget {
+        max-width: 90vw !important;
+    }
+
+    .bootstrap-datetimepicker-widget table {
+        font-size: 14px;
+    }
+
+    /* DateTime picker input group fixes */
+    .form-group .input-group.date {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 0 !important;
+    }
+
+    .form-group .input-group.date .form-control {
+        flex: 1 !important;
+        margin-right: 0 !important;
+    }
+
+    .form-group .input-group.date .input-group-addon {
+        display: flex !important;
+        align-items: center !important;
+        padding: 10px 12px !important;
+        background: #f8f9fa !important;
+        border: 1px solid #ced4da !important;
+        border-left: 0 !important;
+    }
+
+    /* Kartik DateTimePicker specific */
+    .krajee-default.input-group {
+        display: flex !important;
+        flex-direction: row !important;
+    }
+
+    .krajee-default .form-control {
+        flex: 1 !important;
+    }
+
+    .krajee-default .input-group-addon,
+    .krajee-default .input-group-text {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 50px !important;
+        padding: 8px !important;
+        background: #f8f9fa !important;
+        border: 1px solid #ced4da !important;
+        border-left: 0 !important;
+    }
+
+    /* Make datetime picker icons more touchable and centered */
+    .input-group-prepend .input-group-text {
+        min-width: 50px !important;
+        padding: 10px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .kv-dp-icon {
+        font-size: 16px !important;
+        margin: 0 auto !important;
+        display: block !important;
+    }
+
+    .input-group-text.kv-datetime-picker,
+    .input-group-text.kv-datetime-remove {
+        text-align: center !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    /* Additional Select2 clear button positioning */
+    .select2-container .select2-selection--single .select2-selection__rendered {
+        padding-right: 35px !important;
+    }
+
+    .select2-container .select2-selection--single .select2-selection__clear {
+        position: absolute !important;
+        right: 25px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        font-size: 16px !important;
+        line-height: 1 !important;
+        padding: 2px !important;
+        z-index: 2 !important;
+    }
+
+    .select2-container .select2-selection--single .select2-selection__arrow {
+        right: 5px !important;
+        z-index: 1 !important;
+    }
+
+    /* ========================================
+       DASHBOARD MOBILE RESPONSIVE
+       ======================================== */
+
+    /* Dashboard info boxes responsive */
+    .dashboard-info-box-col {
+        margin-bottom: 15px;
+    }
+
+    .dashboard-info-box-col .info-box {
+        margin-bottom: 0;
+    }
+
+    /* Hide desktop table views, show mobile card views */
+    .period-stats-desktop,
+    .company-stats-desktop {
+        display: none !important;
+    }
+
+    .period-stats-mobile,
+    .company-stats-mobile {
+        display: block !important;
+    }
+
+    /* Info boxes on mobile - 2 per row on mobile */
+    .info-box {
+        margin-bottom: 15px !important;
+    }
+
+    .info-box-icon {
+        width: 60px !important;
+        font-size: 1.75rem !important;
+    }
+
+    .info-box-content {
+        padding: 8px 10px !important;
+    }
+
+    .info-box-text {
+        font-size: 0.8rem !important;
+        line-height: 1.2 !important;
+    }
+
+    .info-box-number {
+        font-size: 1.4rem !important;
+    }
+
+    /* Allow 2 columns for info boxes on mobile */
+    .dashboard-info-box-col {
+        flex: 0 0 50% !important;
+        max-width: 50% !important;
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
+
+    /* Stats tables - horizontal scroll for wide tables */
+    .stats-table {
+        margin-bottom: 20px;
+    }
+
+    .stats-table .table-header {
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+    }
+
+    /* Period statistics cards */
+    .period-stat-card {
+        border-bottom: 1px solid #dee2e6;
+        padding: 15px 20px;
+        background: #fff;
+    }
+
+    .period-stat-card:last-child {
+        border-bottom: none;
+    }
+
+    .period-stat-header {
+        font-weight: 600;
+        font-size: 16px;
+        color: #495057;
+        margin-bottom: 12px;
+        border-bottom: 1px solid #f1f3f4;
+        padding-bottom: 8px;
+    }
+
+    .period-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .period-stat-item {
+        text-align: center;
+        padding: 8px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #e9ecef;
+    }
+
+    .period-stat-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+    }
+
+    .period-stat-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #495057;
+        line-height: 1.2;
+    }
+
+    /* Company statistics cards */
+    .company-stat-card {
+        border-bottom: 1px solid #dee2e6;
+        padding: 15px 20px;
+        background: #fff;
+    }
+
+    .company-stat-card:last-child {
+        border-bottom: none;
+    }
+
+    .company-stat-card-header {
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #f1f3f4;
+    }
+
+    .company-stat-period {
+        font-size: 13px;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .company-stat-company {
+        font-size: 16px;
+        font-weight: 600;
+        color: #495057;
+        margin-top: 2px;
+    }
+
+    .company-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .company-stat-item {
+        text-align: center;
+        padding: 6px 4px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #e9ecef;
+    }
+
+    .company-stat-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 2px;
+        line-height: 1.1;
+    }
+
+    .company-stat-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: #495057;
+        line-height: 1.2;
+    }
+
+    /* Stats tables - more compact */
+    .stats-table {
+        margin-bottom: 15px;
+    }
+
+    .stats-table .table-header {
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+    }
+
+    /* Headings with icons */
+    h5 {
+        font-size: 1rem !important;
+    }
+
+    h5 i {
+        font-size: 0.9rem;
+    }
+
+    /* Ensure stats-rate is readable */
+    .stats-rate {
+        font-size: 0.7rem !important;
+        margin-top: 2px;
+        line-height: 1.2;
+    }
+
+    /* Row spacing on mobile */
+    .row.mb-4 {
+        margin-bottom: 1.5rem !important;
+    }
+
+    /* ========================================
+       CALL OPERATOR MOBILE STYLES
+       ======================================== */
+
+    /* Call operator table mobile adaptations */
+    .call-stats-table .table-responsive {
+        display: none;
+    }
+
+    .operator-stats-mobile {
+        display: block;
+    }
+
+    .operator-card {
+        border-bottom: 1px solid #dee2e6;
+        padding: 20px 15px;
+        background: #fff;
+    }
+
+    .operator-card:last-child {
+        border-bottom: none;
+    }
+
+    .operator-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .operator-card-name {
+        font-weight: 600;
+        font-size: 16px;
+        color: #212529;
+    }
+
+    .operator-card-answer-rate {
+        font-size: 14px;
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .operator-stats-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px 20px;
+    }
+
+    .operator-stat-item {
+        text-align: left;
+        padding: 0;
+        background: none;
+        border: none;
+        border-radius: 0;
+    }
+
+    .operator-stat-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+        line-height: 1.1;
+    }
+
+    .operator-stat-value {
+        font-size: 24px;
+        font-weight: 600;
+        color: #212529;
+        line-height: 1.2;
+    }
+
+    .operator-stat-change {
+        font-size: 24px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .operator-summary-card {
+        border-top: 1px solid #6c757d;
+        background: #fff !important;
+        font-weight: 600;
+    }
+
+    .operator-summary-card .operator-card-name {
+        font-weight: 700;
+        color: #495057;
+    }
+
+    .operator-summary-card .operator-stat-value {
+        font-weight: 700;
+    }
+
+    /* Call stats table header adjustments on mobile */
+    .call-stats-table .table-header {
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+    }
+
+    /* ========================================
+       URGENT CALL FORMS - BASE STYLES
+       ======================================== */
+
+    /* Base desktop styles for urgent call forms */
+    .urgent-call-create-form .card-header,
+    .urgent-call-mark-called-form .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #6c757d;
+    }
+
+    .urgent-call-create-form .form-control:focus,
+    .urgent-call-mark-called-form .form-control:focus {
+        border-color: #6c757d;
+        box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+    }
+
+    .urgent-call-mark-called-form .alert-light {
+        background-color: #f8f9fa;
+        border-color: #dee2e6;
+        color: #495057;
+    }
+
+    /* ========================================
+       URGENT CALL FORMS MOBILE STYLES
+       ======================================== */
+
+    /* Urgent call forms mobile adaptations */
+    .urgent-call-create-form .card,
+    .urgent-call-mark-called-form .card {
+        margin: 0 !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+    }
+
+    .urgent-call-create-form .card-header,
+    .urgent-call-mark-called-form .card-header {
+        padding: 15px !important;
+    }
+
+    .urgent-call-create-form .card-header h5,
+    .urgent-call-mark-called-form .card-header h5 {
+        font-size: 16px !important;
+        line-height: 1.3 !important;
+        word-wrap: break-word !important;
+    }
+
+    .urgent-call-create-form .card-body,
+    .urgent-call-mark-called-form .card-body {
+        padding: 15px !important;
+    }
+
+    /* Mobile row/col stacking */
+    .urgent-call-create-form .row,
+    .urgent-call-mark-called-form .row {
+        margin-left: -5px !important;
+        margin-right: -5px !important;
+    }
+
+    .urgent-call-create-form .row [class*="col-"],
+    .urgent-call-mark-called-form .row [class*="col-"] {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* Stack columns on mobile */
+    .urgent-call-create-form .row .col-md-6,
+    .urgent-call-mark-called-form .row .col-md-6 {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    .urgent-call-create-form .row .col-md-12,
+    .urgent-call-mark-called-form .row .col-md-12 {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Form elements mobile styling */
+    .urgent-call-create-form .form-group,
+    .urgent-call-mark-called-form .form-group {
+        margin-bottom: 20px !important;
+    }
+
+    .urgent-call-create-form label,
+    .urgent-call-mark-called-form label {
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        margin-bottom: 8px !important;
+        display: block !important;
+        word-wrap: break-word !important;
+    }
+
+    .urgent-call-create-form .form-control,
+    .urgent-call-mark-called-form .form-control {
+        font-size: 16px !important;
+        padding: 12px 15px !important;
+        min-height: 48px !important;
+        border-radius: 6px !important;
+        line-height: 1.5 !important;
+    }
+
+    .urgent-call-create-form textarea.form-control,
+    .urgent-call-mark-called-form textarea.form-control {
+        min-height: 120px !important;
+        resize: vertical !important;
+    }
+
+    .urgent-call-create-form .form-text,
+    .urgent-call-mark-called-form .form-text {
+        font-size: 14px !important;
+        margin-top: 6px !important;
+        line-height: 1.4 !important;
+    }
+
+    /* Alert styling for mobile */
+    .urgent-call-mark-called-form .alert {
+        padding: 12px 15px !important;
+        margin-top: 8px !important;
+        border-radius: 6px !important;
+        font-size: 15px !important;
+        line-height: 1.5 !important;
+        word-wrap: break-word !important;
+    }
+
+    /* Button styling mobile */
+    .urgent-call-create-form .d-flex,
+    .urgent-call-mark-called-form .d-flex {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+
+    .urgent-call-create-form .btn,
+    .urgent-call-mark-called-form .btn {
+        width: 100% !important;
+        padding: 12px 16px !important;
+        font-size: 16px !important;
+        min-height: 48px !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+    }
+
+    /* Icon spacing in header */
+    .urgent-call-create-form .card-header i,
+    .urgent-call-mark-called-form .card-header i {
+        margin-right: 8px !important;
+        font-size: 14px !important;
+    }
+
+    /* Compact info display on mobile */
+    .urgent-call-create-form .row.mb-3,
+    .urgent-call-mark-called-form .row.mb-3 {
+        margin-bottom: 15px !important;
+    }
+
+    /* Strong labels in info sections */
+    .urgent-call-create-form strong,
+    .urgent-call-mark-called-form strong {
+        font-size: 14px !important;
+        color: #495057 !important;
+        display: block !important;
+        margin-bottom: 4px !important;
+    }
+
+    /* Better spacing for user info */
+    .urgent-call-create-form .row [class*="col-"] > strong + *,
+    .urgent-call-mark-called-form .row [class*="col-"] > strong + * {
+        font-size: 15px !important;
+        color: #212529 !important;
+        word-wrap: break-word !important;
+    }
+
+    /* ========================================
+       NOTIFICATIONS MOBILE IMPROVEMENTS
+       ======================================== */
+
+    /* Fix spacing in notifications header */
+    .notifications-section .card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+
+    .notifications-section .card-header h5 {
+        margin-bottom: 0 !important;
+        word-wrap: break-word !important;
+        white-space: normal !important;
+    }
+
+    .notifications-section .card-header small {
+        margin-top: 8px !important;
+        align-self: flex-start !important;
+    }
+
+    /* ========================================
+       TEST RESULTS MOBILE IMPROVEMENTS
+       ======================================== */
+
+    /* Ensure question titles can wrap properly */
+    .test-results-page .question-title,
+    .answer-block .question-title {
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.4 !important;
+    }
+
+    /* Ensure user answers can wrap properly */
+    .test-results-page .user-answer,
+    .answer-content .user-answer {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.4 !important;
+        hyphens: auto !important;
+    }
+
+    /* Question blocks spacing */
+    .answer-block {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+
+    .answer-header h5 {
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+    }
+
+    /* ========================================
+       ARCHIVE SECTION MOBILE IMPROVEMENTS
+       ======================================== */
+
+    /* Add spacing above archive card */
+    .card:has(.archive-with-reason-btn) {
+        margin-top: 20px !important;
+    }
+
+    /* Archive card header title wrapping */
+    .card-header h5 {
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.3 !important;
+        hyphens: auto !important;
+    }
+
+    /* Archive rejection reason label wrapping */
+    #rejection-reason + label,
+    label[for="rejection-reason"] {
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+        line-height: 1.4 !important;
+        hyphens: auto !important;
+    }
+
+    /* Archive textarea and form elements */
+    #rejection-reason {
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+    }
+
+    /* Archive button text wrapping */
+    .archive-with-reason-btn {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        line-height: 1.3 !important;
+        padding: 12px 16px !important;
+    }
+
+    /* ========================================
+       CALL CENTER ACTION DETAILS MOBILE
+       ======================================== */
+
+    /* Action details expandable forms mobile adaptation */
+    .action-details {
+        padding: 10px 0px !important;
+        margin: 8px 0 !important;
+        border-left: 2px solid #6c757d !important;
+        border-radius: 6px !important;
+        overflow: hidden !important;
+    }
+
+    .action-details .content {
+        width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    /* Action details row mobile */
+    .action-details-row td {
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+
+    /* GridView table mobile responsiveness for action details */
+    .action-details-row + tr.action-details-row,
+    tr.action-details-row {
+        width: 100% !important;
+    }
+
+    /* Remove extra margins from nested cards in action details */
+    .action-details .card {
+        margin: 0 !important;
+        box-shadow: none !important;
+        border: 1px solid #dee2e6 !important;
+    }
+
+    /* Exception: Add spacing above archive card in action details */
+    .action-details .card:has(.archive-with-reason-btn) {
+        margin-top: 20px !important;
+    }
+
+    /* Compact action details content */
+    .action-details .urgent-call-mark-called-form,
+    .action-details .urgent-call-create-form {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 6px;
+    }
+
+    /* Fix textarea width in action details */
+    .action-details textarea,
+    .action-details .form-control {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        word-wrap: break-word !important;
+    }
+
+    /* Ensure all form elements in action details fit properly */
+    .action-details .form-group {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    /* Fix call center comment specifically */
+    .action-details #call_center_comment,
+    .action-details [name="call_center_comment"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        resize: vertical !important;
+        overflow-x: hidden !important;
+        word-wrap: break-word !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Ensure form buttons don't overflow */
+    .action-details .btn {
+        max-width: 100% !important;
+        word-wrap: break-word !important;
+        white-space: normal !important;
+    }
+
+    /* Fix form-text and help text wrapping */
+    .action-details .form-text,
+    .action-details .text-muted,
+    .action-details .help-block,
+    .action-details small {
+        width: 100% !important;
+        max-width: 100% !important;
+        word-wrap: break-word !important;
+        white-space: normal !important;
+        overflow-wrap: break-word !important;
+        hyphens: auto !important;
+        line-height: 1.4 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* ========================================
+       TEST MANAGEMENT MOBILE STYLES
+       ======================================== */
+
+    /* Test management page mobile adaptations */
+    .question-item {
+        margin-bottom: 15px !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+    }
+
+    .question-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .question-header strong {
+        font-size: 16px !important;
+        line-height: 1.3 !important;
+        word-wrap: break-word !important;
+        max-width: 100% !important;
+    }
+
+    .question-type.badge {
+        font-size: 11px !important;
+        padding: 3px 6px !important;
+        align-self: flex-start !important;
+    }
+
+    .question-actions {
+        display: flex !important;
+        gap: 8px !important;
+        margin-left: 0 !important;
+        align-self: flex-end !important;
+        width: 100% !important;
+        justify-content: flex-end !important;
+    }
+
+    .question-actions .btn {
+        padding: 8px 12px !important;
+        font-size: 14px !important;
+        min-height: 44px !important;
+        flex: 0 0 auto !important;
+    }
+
+    .drag-handle {
+        font-size: 18px !important;
+        padding: 8px !important;
+        align-self: flex-start !important;
+        touch-action: none !important;
+        user-select: none !important;
+    }
+
+    /* Question options mobile styling */
+    .question-options {
+        margin-left: 0 !important;
+        padding: 12px 0 !important;
+        border-top: 1px solid #f0f0f0 !important;
+        margin-top: 8px !important;
+    }
+
+    .option-item {
+        margin: 10px 0 !important;
+        padding: 12px 15px !important;
+        border-radius: 8px !important;
+        font-size: 15px !important;
+        border: 1px solid #e9ecef !important;
+    }
+
+    .option-item input {
+        margin-right: 8px !important;
+        transform: scale(1.2) !important;
+    }
+
+    /* Add question button mobile */
+    .add-question-section {
+        margin-top: 25px !important;
+        padding: 0 10px !important;
+    }
+
+    .add-question-section .btn {
+        width: 100% !important;
+        padding: 12px 16px !important;
+        font-size: 16px !important;
+        min-height: 48px !important;
+        border-radius: 8px !important;
+    }
+
+    /* Alert styling for mobile */
+    .alert {
+        margin: 15px 0 !important;
+        padding: 15px !important;
+        border-radius: 8px !important;
+        font-size: 15px !important;
+    }
+
+    /* Improve touch targets */
+    .question-item {
+        min-height: 60px !important;
+    }
+
+    /* Better sortable feedback on mobile */
+    .sortable-ghost {
+        opacity: 0.3 !important;
+        transform: scale(0.95) !important;
+    }
+
+    .sortable-chosen {
+        background: #e3f2fd !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+    }
+
+    /* Responsive question header layout */
+    .question-header-top {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+        margin-bottom: 8px !important;
+    }
+
+    .question-header-title {
+        flex: 1 !important;
+        margin-right: 10px !important;
+    }
+
+    .question-header-drag {
+        flex: 0 0 auto !important;
+    }
+
+    /* Better spacing for small screens */
+    .test-settings {
+        padding: 10px !important;
+    }
+
+    .questions-list {
+        margin: 0 !important;
+    }
+
+    /* Improve button spacing in actions */
+    .question-actions .btn + .btn {
+        margin-left: 0 !important;
+    }
+
+    /* Make badges more visible */
+    .question-type.badge {
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    /* ========================================
+       TABS - GENERAL PAGE TABS
+       ======================================== */
+
+    /* Card tabs on main pages (employees, packages) */
+    .card-tabs .nav-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        overflow: visible;
+        border-bottom: 2px solid #dee2e6;
+        margin-bottom: 0;
+        padding: 0;
+        gap: 2px;
+    }
+
+    /* Mobile spacing adjustments for card tabs */
+    .card-tabs {
+        margin-left: 5px !important;
+        margin-right: 5px !important;
+    }
+
+    .card-tabs .card-body {
+        padding: 8px !important;
+    }
+
+    /* Adjust container-fluid inside action-details */
+    .action-details .container-fluid {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
+
+    /* Fix alert text wrapping on mobile */
+    .alert {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: normal !important;
+        overflow-x: hidden !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .alert h4,
+    .alert h5,
+    .alert h6 {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: normal !important;
+        line-height: 1.3 !important;
+    }
+
+    .alert p {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        white-space: normal !important;
+        line-height: 1.4 !important;
+    }
+
+    /* Test results card specific improvements */
+    .test-results-card {
+        margin-left: 5px !important;
+        margin-right: 5px !important;
+        overflow-x: hidden !important;
+    }
+
+    .test-results-body {
+        padding: 8px !important;
+        overflow-x: hidden !important;
+    }
+
+    .test-results-alert {
+        margin: 0 !important;
+        padding: 12px !important;
+        border-radius: 8px !important;
+    }
+
+    /* ========================================
+       STATUS MANAGEMENT & COMMENTS MOBILE FIXES
+       ======================================== */
+
+    /* Stack status management buttons vertically on mobile */
+    .card .card-body .mb-3 {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        width: 100% !important;
+    }
+
+    .card .card-body .mb-3 .btn {
+        width: 100% !important;
+        margin: 0 !important;
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        padding: 10px 12px !important;
+        line-height: 1.3 !important;
+    }
+
+    /* Add spacing between status management and comments */
+    .col-md-5 {
+        margin-top: 20px !important;
+    }
+
+    /* Comments section improvements */
+    .comment-item {
+        margin-bottom: 15px !important;
+        padding: 12px !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+
+    .comment-actions {
+        display: flex !important;
+        gap: 8px !important;
+        flex-wrap: wrap !important;
+    }
+
+    .comment-actions .btn {
+        flex: 1 !important;
+        min-width: 80px !important;
+    }
+
+    /* ========================================
+       URGENT CALLS MOBILE IMPROVEMENTS
+       ======================================== */
+
+    /* Urgent calls header spacing improvements */
+    .urgent-calls-history .card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .urgent-calls-history .card-header h5 {
+        margin-bottom: 0 !important;
+    }
+
+    .urgent-calls-history .card-header small {
+        align-self: flex-start !important;
+        margin-left: 0 !important;
+    }
+
+    /* Reduce right padding for urgent call items */
+    .urgent-call-item {
+        padding: 12px 0px 12px 12px !important;
+        margin-bottom: 15px !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+
+    .urgent-call-item .d-flex {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .urgent-call-item .badge {
+        align-self: flex-start !important;
+    }
+
+    .urgent-calls-list {
+        padding-right: 0px !important;
+    }
+
+    .card-tabs .nav-tabs .nav-item {
+        flex: 0 0 auto;
+        margin-bottom: -2px;
+    }
+
+    .card-tabs .nav-tabs .nav-link {
+        font-size: 14px;
+        padding: 10px 12px;
+        white-space: nowrap;
+        border: 1px solid #dee2e6;
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 8px 8px 0 0;
+        color: #495057;
+        background: transparent;
+        transition: all 0.2s;
+        margin-right: 0;
+    }
+
+    .card-tabs .nav-tabs .nav-link:hover {
+        background: transparent;
+        border-color: #dee2e6 #dee2e6 transparent;
+    }
+
+    .card-tabs .nav-tabs .nav-link.active {
+        color: #007bff;
+        background: #fff;
+        border-color: #dee2e6 #dee2e6 #fff;
+        border-bottom: 2px solid #fff;
+        font-weight: 600;
+    }
+
+    /* Chat action buttons mobile */
+    .chat-action-buttons {
+        flex-wrap: wrap;
+        gap: 0.2rem;
+        order: 5;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+
+    .chat-action-buttons .btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.85rem;
+    }
+}
+
+/* ========================================
+   TABLET STYLES
+   ======================================== */
+@media screen and (min-width: 769px) and (max-width: 992px) {
+    .table {
+        font-size: 0.9em;
+    }
+
+    .table th,
+    .table td {
+        padding: 8px;
+    }
+}
+
+/* ========================================
+   DESKTOP IMPROVEMENTS
+   ======================================== */
+@media screen and (min-width: 769px) {
+    /* Dashboard desktop versions - show tables, hide mobile cards */
+    .period-stats-desktop,
+    .company-stats-desktop {
+        display: block !important;
+    }
+
+    .period-stats-mobile,
+    .company-stats-mobile {
+        display: none !important;
+    }
+
+    /* Call operator desktop styles */
+    .call-stats-table .table-responsive {
+        display: block !important;
+    }
+
+    .operator-stats-mobile {
+        display: none !important;
+    }
+
+    /* Better table layout on desktop */
+    .detail-view th {
+        width: 200px;
+        max-width: 200px;
+    }
+
+    .detail-view td {
+        width: auto;
+        max-width: none;
+    }
+
+    /* Package documents on desktop */
+    .row > [class*="col-"] {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+    /* General page tabs on desktop (not inside action-details) */
+    .card-tabs .nav-tabs {
+        border-bottom: 2px solid #dee2e6;
+        flex-wrap: wrap;
+    }
+
+    .card-tabs .nav-tabs .nav-item {
+        margin-bottom: -2px;
+    }
+
+    .card-tabs .nav-tabs .nav-link {
+
+        border-bottom: 1px solid #dee2e6;
+        border-radius: 8px 8px 0 0;
+        padding: 12px 20px;
+        color: #495057;
+        transition: all 0.2s;
+        background: transparent;
+    }
+
+    .card-tabs .nav-tabs .nav-link:hover {
+        background: transparent;
+        border-color: #dee2e6 #dee2e6 transparent;
+    }
+
+    .card-tabs .nav-tabs .nav-link.active {
+        color: #007bff;
+        background: #fff;
+        border-color: #dee2e6 #dee2e6 #fff;
+        border-bottom: 2px solid #fff;
+        font-weight: 600;
+    }
+}

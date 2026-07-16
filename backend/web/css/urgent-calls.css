@@ -1,0 +1,296 @@
+/* Urgent Calls Styles - Gray Theme */
+
+/* Tab highlighting for urgent notifications */
+.urgent-tab-highlight {
+    animation: pulse-gray 2s infinite;
+    position: relative;
+}
+
+.urgent-tab-highlight::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background-color: #dc3545;
+    border-radius: 50%;
+    animation: pulse-dot 1.5s infinite;
+}
+
+@keyframes pulse-gray {
+    0% { background-color: transparent; }
+    50% { background-color: rgba(108, 117, 125, 0.2); }
+    100% { background-color: transparent; }
+}
+
+@keyframes pulse-dot {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.7; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Row status styling in urgent calls table */
+.urgent-calls-table .table td {
+    vertical-align: middle;
+}
+
+.status-need-call {
+    background-color: #f8f9fa !important;
+    border-left: 3px solid #6c757d;
+}
+
+.status-called {
+    background-color: #d1ecf1 !important;
+    border-left: 3px solid #17a2b8;
+}
+
+.status-confirmed {
+    background-color: #d4edda !important;
+    border-left: 3px solid #28a745;
+}
+
+/* Urgent call action buttons */
+.btn-urgent-call {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
+    font-weight: 500;
+}
+
+.btn-urgent-call:hover {
+    background-color: #5a6268;
+    border-color: #545b62;
+    color: #fff;
+}
+
+.btn-call-completed {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: #fff;
+    font-weight: 500;
+}
+
+.btn-call-completed:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+    color: #fff;
+}
+
+/* Form styling for urgent calls */
+
+.urgent-call-create-form .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #6c757d;
+}
+
+.urgent-call-create-form .form-control:focus {
+    border-color: #6c757d;
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+}
+
+.urgent-call-mark-called-form .card {
+    border-left: 4px solid #28a745;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.1);
+}
+
+.urgent-call-mark-called-form .card-header {
+    background-color: #f1f8f4;
+    border-bottom: 1px solid #28a745;
+}
+
+.urgent-call-mark-called-form .form-control:focus {
+    border-color: #28a745;
+    box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+}
+
+.urgent-call-mark-called-form .alert-info {
+    background-color: #e7f3ff;
+    border-color: #b8daff;
+    color: #004085;
+}
+
+/* History styling */
+.urgent-calls-history .card {
+    border-left: 4px solid #6c757d;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.1);
+}
+
+.urgent-calls-history .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #6c757d;
+}
+
+.bg-light-success {
+    background-color: #f1f8f4 !important;
+    border: 1px solid #c3e6cb;
+}
+
+.bg-light-warning {
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6;
+}
+
+.bg-light-primary {
+    background-color: #f8f9fa !important;
+    border: 1px solid #dee2e6;
+}
+
+.bg-light-info {
+    background-color: #e6f7ff !important;
+    border: 1px solid #bee5eb;
+}
+
+.call-item .card {
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+.call-item .card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+.timeline-divider hr {
+    height: 2px;
+    opacity: 0.3;
+    background-color: #6c757d;
+}
+
+.calls-timeline {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.calls-timeline::-webkit-scrollbar {
+    width: 6px;
+}
+
+.calls-timeline::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.calls-timeline::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.calls-timeline::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Icon styling */
+.urgent-call-icon {
+    color: #6c757d;
+    font-size: 1.1em;
+}
+
+.urgent-call-icon:hover {
+    color: #5a6268;
+}
+
+.call-status-icon {
+    margin-right: 0.25rem;
+}
+
+/* Badge styling for call status */
+.badge-urgent {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+.badge-completed {
+    background-color: #28a745;
+    color: #fff;
+}
+
+.badge-confirmed {
+    background-color: #17a2b8;
+    color: #fff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .urgent-call-create-form .card-body,
+    .urgent-call-mark-called-form .card-body,
+    .urgent-calls-history .card-body {
+        padding: 1rem;
+    }
+
+    .calls-timeline {
+        max-height: 400px;
+    }
+
+    .urgent-tab-highlight::after {
+        width: 6px;
+        height: 6px;
+    }
+
+    .btn-call-completed {
+        font-size: 0.875rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+/* Loading states */
+.urgent-call-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.urgent-call-loading .btn {
+    position: relative;
+}
+
+.urgent-call-loading .btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin: -8px 0 0 -8px;
+    width: 16px;
+    height: 16px;
+    border: 2px solid transparent;
+    border-top: 2px solid #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Alert modifications for urgent calls */
+.urgent-call-alert {
+    border-left: 4px solid;
+    padding-left: 1rem;
+}
+
+.urgent-call-alert.alert-warning {
+    border-left-color: #6c757d;
+}
+
+.urgent-call-alert.alert-success {
+    border-left-color: #28a745;
+}
+
+.urgent-call-alert.alert-info {
+    border-left-color: #17a2b8;
+}
+
+/* Enhanced table row hover effects */
+.urgent-calls-table tbody tr:hover {
+    background-color: rgba(0,0,0,0.02);
+    cursor: pointer;
+}
+
+.urgent-calls-table tbody tr.status-need-call:hover {
+    background-color: rgba(108, 117, 125, 0.1) !important;
+}
+
+.urgent-calls-table tbody tr.status-called:hover {
+    background-color: rgba(23, 162, 184, 0.1) !important;
+}
