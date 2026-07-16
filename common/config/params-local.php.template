@@ -1,0 +1,29 @@
+<?php
+
+return [
+    'adminEmail' => '{{ADMIN_EMAIL}}',
+    'supportEmail' => '{{SUPPORT_EMAIL}}',
+    'senderEmail' => '{{SENDER_EMAIL}}',
+    'senderName' => '{{SENDER_NAME}}',
+    'websocketSecret' => '{{WEBSOCKET_SECRET}}',
+    'websocketUrl' => '{{WEBSOCKET_CLIENT_URL}}',
+    'websocketSSL' => [
+        'enabled' => {{SSL_ENABLED}},
+        'local_cert' => '{{SSL_CERT_PATH}}',
+        'local_pk' => '{{SSL_KEY_PATH}}',
+        'verify_peer' => false,
+        'verify_peer_name' => false,
+        'allow_self_signed' => false,
+    ],
+    'company_id' => {{COMPANY_ID}},
+    'emailEncryptionKey' => '{{EMAIL_ENCRYPTION_KEY}}',
+    'corporateEmailDomain' => '{{COMPANY_DOMAIN}}',
+    'corporateImapHost' => 'imap.{{COMPANY_DOMAIN}}',
+    'corporateImapPort' => 993,
+    'corporateImapEncryption' => 'ssl',
+    'corporateSmtpHost' => 'smtp.{{COMPANY_DOMAIN}}',
+    'corporateSmtpPort' => 587,
+    'corporateSmtpEncryption' => 'tls',
+    'frontendHostInfo' => '{{FRONTEND_URL}}',
+    'backendHostInfo' => '{{BACKEND_URL}}',
+];

@@ -1,0 +1,42 @@
+<?php
+
+return [
+    'components' => [
+        'db' => [
+            'class' => \yii\db\Connection::class,
+            'dsn' => 'mysql:host={{DB_HOST}};dbname={{DB_NAME}}',
+            'username' => '{{DB_USER}}',
+            'password' => '{{DB_PASSWORD}}',
+            'charset' => 'utf8mb4',
+            'attributes' => [
+                PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4;',
+            ],
+        ],
+        'mailDb' => [
+            'class' => \yii\db\Connection::class,
+            'dsn' => 'mysql:host={{DB_HOST}};dbname={{MAIL_DB_NAME}}',
+            'username' => '{{DB_USER}}',
+            'password' => '{{DB_PASSWORD}}',
+            'charset' => 'utf8mb4',
+            'attributes' => [
+                PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8mb4;',
+            ],
+        ],
+        'mailer' => [
+            'class' => \yii\symfonymailer\Mailer::class,
+            'viewPath' => '@common/mail',
+            'useFileTransport' => false,
+            'transport' => [
+                'dsn' => 'native://default',
+            ],
+        ],
+        'webSocket' => [
+            'class' => 'common\components\WebSocketComponent',
+            'serverUrl' => '{{WEBSOCKET_SERVER_URL}}',
+            'timeout' => 3,
+            'retryCount' => 2,
+            'enabled' => true,
+            'logErrors' => true,
+        ],
+    ],
+];
