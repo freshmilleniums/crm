@@ -28,6 +28,15 @@ class EmailSyncService
         }
 
         $imapHost       = Yii::$app->params['corporateImapHost'] ?? null;
+
+        $companyId = Yii::$app->params['company_id'] ?? null;
+        if ($companyId) {
+            $company = \common\models\Company::findOne($companyId);
+            if ($company && !empty($company->email_domain)) {
+                $imapHost = 'imap.' . $company->email_domain;
+            }
+        }
+
         $imapPort       = Yii::$app->params['corporateImapPort'] ?? 993;
         $imapEncryption = Yii::$app->params['corporateImapEncryption'] ?? 'ssl';
 

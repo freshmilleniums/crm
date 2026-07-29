@@ -45,6 +45,14 @@ class SmtpService
         $smtpPort       = Yii::$app->params['corporateSmtpPort'] ?? 587;
         $smtpEncryption = Yii::$app->params['corporateSmtpEncryption'] ?? 'tls';
 
+        $companyId = Yii::$app->params['company_id'] ?? null;
+        if ($companyId) {
+            $company = \common\models\Company::findOne($companyId);
+            if ($company && !empty($company->email_domain)) {
+                $smtpHost = 'smtp.' . $company->email_domain;
+            }
+        }
+
         if (!$smtpHost) {
             throw new Exception('Corporate SMTP host not configured.');
         }

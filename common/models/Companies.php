@@ -21,6 +21,7 @@ use backend\models\User;
  * @property int|null $smtp_port
  * @property string|null $smtp_login
  * @property string|null $smtp_password
+ * @property string|null $email_domain
  *
  * @property User $administrator
  */

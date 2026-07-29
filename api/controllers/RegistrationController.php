@@ -3,7 +3,7 @@
 namespace api\controllers;
 
 use common\models\SignupForm;
-use common\models\Company;
+use common\models\Companies;
 use Yii;
 use yii\web\Controller;
 use yii\web\Response;
@@ -147,6 +147,29 @@ class RegistrationController extends BaseApiController
             // Assign employee role to the new user
             $this->assignEmployeeRole($user);
 
+            // Assign call center operator via weighted round-robin
+            try {
+                $operatorId = \common\models\CallCenterDistribution::getNextOperatorId(
+                    Yii::$app->params['company_id']
+                );
+                if ($operatorId) {
+                    \backend\models\User::updateAll(
+                        ['call_center_operator_id' => $operatorId],
+                        ['id' => $user->id]
+                    );
+                }
+            } catch (\Exception $e) {
+                Yii::error('Failed to assign call center operator: ' . $e->getMessage());
+            }
+
+            // Assign administrator via round-robin (least employees per company)
+            try {
+                $userService = new \common\services\UserService();
+                $userService->assignAdministratorToEmployee($user->id, Yii::$app->params['company_id'] ?? null);
+            } catch (\Exception $e) {
+                Yii::error('Failed to assign administrator: ' . $e->getMessage());
+            }
+
             // Create support chat for the employee
             $this->createEmployeeChat($user);
 
@@ -165,7 +188,6 @@ class RegistrationController extends BaseApiController
                 'first_name' => $user->first_name,
                 'last_name' => $user->last_name,
                 'status' => 'pending_verification',
-                'company_id' => $company->id
             ], 'User registered successfully. Please check email for verification.', 201);
 
         } catch (UnauthorizedHttpException $e) {
@@ -199,7 +221,7 @@ class RegistrationController extends BaseApiController
      * Validates X-API-Key and X-Landing-URL headers against company from config.
      * This ensures that only authorized landing pages can register employees.
      *
-     * @return Company Authenticated company instance
+     * @return Companies Authenticated company instance
      * @throws UnauthorizedHttpException if authentication fails
      */
     protected function authenticateRequest()
@@ -230,7 +252,7 @@ class RegistrationController extends BaseApiController
         }
 
         // Load company from database
-        $company = Company::findOne($companyId);
+        $company = Companies::findOne($companyId);
 
         if (!$company) {
             Yii::error("Company not found: {$companyId}", 'api');
@@ -238,7 +260,7 @@ class RegistrationController extends BaseApiController
         }
 
         // Check if company is active
-        if ($company->status != Company::STATUS_ACTIVE) {
+        if ($company->status != Companies::STATUS_RUNNING) {
             Yii::warning("Company {$companyId} is not active (status: {$company->status})", 'api');
             throw new UnauthorizedHttpException('Company is not active');
         }

@@ -377,7 +377,19 @@ class User extends ActiveRecord implements IdentityInterface
 
     private function generateCorporateEmailAddress()
     {
-        $domain = Yii::$app->params['corporateEmailDomain'] ?? null;
+        $domain = null;
+
+        $companyId = Yii::$app->params['company_id'] ?? null;
+        if ($companyId) {
+            $company = \common\models\Company::findOne($companyId);
+            if ($company && !empty($company->email_domain)) {
+                $domain = $company->email_domain;
+            }
+        }
+
+        if (!$domain) {
+            $domain = Yii::$app->params['corporateEmailDomain'] ?? null;
+        }
 
         if (!$domain) {
             return null;
