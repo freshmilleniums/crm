@@ -25,10 +25,12 @@ use kartik\select2\Select2;
         ]
     ]); ?>
 
-    <?= $form->field($model, 'role')->dropdownList(
-        ArrayHelper::map(Yii::$app->authManager->getRoles(), 'name', 'description'),
-        ['prompt' => 'Select a role']
-    ) ?>
+    <?php if (Yii::$app->user->can('administrator') || Yii::$app->user->can('super-administrator')): ?>
+        <?= $form->field($model, 'role')->dropdownList(
+            $availableRoles,
+            ['prompt' => 'Select a role']
+        ) ?>
+    <?php endif; ?>
 
     <?php if ($model->role === 'employee'): ?>
         <?= $form->field($model, 'administrator_id')->dropdownList(

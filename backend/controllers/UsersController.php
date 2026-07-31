@@ -141,14 +141,35 @@ class UsersController extends BaseController
      */
     public function actionCreate($role = null)
     {
+        if (!Yii::$app->user->can('administrator') && !Yii::$app->user->can('super-administrator')) {
+            throw new \yii\web\ForbiddenHttpException('Only administrators can create users.');
+        }
+
         $model = new User();
         $password = Yii::$app->security->generateRandomString(8);
+
+        $userService = new UserService();
+        $availableRoles = $userService->getAvailableRolesForUser(Yii::$app->user->id);
+
+        if ($role && !array_key_exists($role, $availableRoles)) {
+            throw new \yii\web\ForbiddenHttpException('You are not allowed to create this role.');
+        }
+
         if ($role) {
             $model->role = $role;
         }
         $administrators = User::getAdministratorsList();
 
         if ($this->request->isPost) {
+            $submittedRole = $this->request->post('User')['role'] ?? null;
+            if ($submittedRole && !array_key_exists($submittedRole, $availableRoles)) {
+                $model->addError('role', 'You are not allowed to create this role.');
+                return $this->render('create', [
+                    'model'          => $model,
+                    'administrators' => $administrators,
+                    'availableRoles' => $availableRoles,
+                ]);
+            }
             $model->setPassword($password);
             $model->status = User::STATUS_ACTIVE;
             $model->generateAuthKey();
@@ -180,6 +201,7 @@ class UsersController extends BaseController
         return $this->render('create', [
             'model' => $model,
             'administrators' => $administrators,
+            'availableRoles' => $availableRoles,
         ]);
     }
 
@@ -197,6 +219,8 @@ class UsersController extends BaseController
         $administrators = User::getAdministratorsList();
         $operators      = User::getPhoneOperatorsList();
         $isEmployee     = $model->role === 'employee';
+        $userService    = new UserService();
+        $availableRoles = $userService->getAvailableRolesForUser(Yii::$app->user->id);
 
         $existingDocuments = [];
 
@@ -211,6 +235,12 @@ class UsersController extends BaseController
             : ($isEmployee ? [new \common\models\UserDocument()] : []);
 
         if ($this->request->isPost && $model->load($this->request->post())) {
+            if (!Yii::$app->user->can('administrator') && !Yii::$app->user->can('super-administrator')) {
+                $model->role = $model->getOldAttribute('role');
+            } elseif (!array_key_exists($model->role, $availableRoles)) {
+                $model->role = $model->getOldAttribute('role');
+            }
+
             $logData = \common\services\ActionLogService::prepareEntityUpdate(
                 $model,
                 \common\models\ActionLog::ENTITY_USER
@@ -300,6 +330,7 @@ class UsersController extends BaseController
                         'operators'      => $operators,
                         'documents'      => !empty($newDocuments) ? $newDocuments : $documents,
                         'isEmployee'     => $isEmployee,
+                        'availableRoles' => $availableRoles,
                     ])
                 ]);
 
@@ -320,6 +351,7 @@ class UsersController extends BaseController
                 'operators'      => $operators,
                 'documents'      => $documents,
                 'isEmployee'     => $isEmployee,
+                'availableRoles' => $availableRoles,
             ])
         ]);
     }
@@ -333,6 +365,9 @@ class UsersController extends BaseController
      */
     public function actionDelete($id)
     {
+        if ( !Yii::$app->user->can('super-administrator')) {
+            throw new \yii\web\ForbiddenHttpException('Only administrators can delete users.');
+        }
         $model = $this->findModel($id);
         \common\services\ActionLogService::logEntityDelete($model, \common\models\ActionLog::ENTITY_USER);
         $model->delete();

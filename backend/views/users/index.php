@@ -561,9 +561,18 @@ $(document).on('submit', '#send-template-form', function(e) {
 
 $(document).on('click', '.remove-employer-btn', function(e) {
     e.preventDefault();
-
-    if (!confirm('Are you sure you want to archive this user?')) {
-        return;
+    
+    var isHigh = $(this).data('high') == '1';
+    var role   = $(this).data('role');
+    
+    if (isHigh) {
+        if (!confirm('⚠️ WARNING: You are about to archive a user with role \"' + role + '\".\\n\\nAre you absolutely sure? This action cannot be easily undone.')) {
+            return;
+        }
+    } else {
+        if (!confirm('Are you sure you want to archive this user?')) {
+            return;
+        }
     }
 
     var userId = $(this).data('id');
@@ -924,6 +933,7 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                             );
                                                         },
                                                         'delete' => function($url, $model, $key) {
+                                                            $isHighRole = in_array($model->role, [/*'administrator',*/ 'super-administrator']);
                                                             return Html::a(
                                                                 '<svg aria-hidden="true" style="display:inline-block;font-size:inherit;height:1em;overflow:visible;vertical-align:-.125em;width:.875em" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path fill="currentColor" d="M32 464a48 48 0 0048 48h288a48 48 0 0048-48V128H32zm272-256a16 16 0 0132 0v224a16 16 0 01-32 0zm-96 0a16 16 0 0132 0v224a16 16 0 01-32 0zm-96 0a16 16 0 0132 0v224a16 16 0 01-32 0zM432 32H312l-9-19a24 24 0 00-22-13H167a24 24 0 00-22 13l-9 19H16A16 16 0 000 48v32a16 16 0 0016 16h416a16 16 0 0016-16V48a16 16 0 00-16-16z"></path></svg>',
                                                                 '#',
@@ -931,6 +941,8 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                                     'title'     => 'Archive',
                                                                     'class'     => 'remove-employer-btn',
                                                                     'data-id'   => $model->id,
+                                                                    'data-role'    => $model->role,
+                                                                    'data-high'    => $isHighRole ? '1' : '0',
                                                                     'data-pjax' => '0',
                                                                 ]
                                                             );

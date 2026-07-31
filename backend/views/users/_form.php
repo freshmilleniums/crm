@@ -16,7 +16,7 @@ use kartik\select2\Select2;
     <?php $form = ActiveForm::begin(); ?>
 
     <?= $form->field($model, 'role')->dropdownList(
-        ArrayHelper::map(Yii::$app->authManager->getRoles(), 'name', 'description'),
+        $availableRoles,
         ['prompt' => 'Select a role']
     ) ?>
 
