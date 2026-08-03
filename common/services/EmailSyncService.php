@@ -31,7 +31,7 @@ class EmailSyncService
 
         $companyId = Yii::$app->params['company_id'] ?? null;
         if ($companyId) {
-            $company = \common\models\Company::findOne($companyId);
+            $company = \common\models\Companies::findOne($companyId);
             if ($company && !empty($company->email_domain)) {
                 $imapHost = 'imap.' . $company->email_domain;
             }
