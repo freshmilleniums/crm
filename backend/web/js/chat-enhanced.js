@@ -645,7 +645,7 @@ $(document).ready(function() {
             originalMessages = $('#messages-list').html();
         }
 
-        var searchUrl = window.chatConfig.urls.searchMessages || '/crm-panel/chat/search-messages';
+        var searchUrl = window.chatConfig.urls.searchMessages || '/chat/search-messages';
         var searchData = { q: query, mode: 'full' };
 
         // Add chat_id for employee chats
@@ -895,7 +895,7 @@ $(document).ready(function() {
         if (!confirm("Remove " + userName + " from this chat?")) return;
 
         $.ajax({
-            url: window.chatConfig.urls.removeParticipant || '/crm-panel/chat/remove-participant',
+            url: window.chatConfig.urls.removeParticipant || '/chat/remove-participant',
             type: "POST",
             data: { chat_id: chatId, user_id: userId },
             dataType: "json",

@@ -829,7 +829,7 @@ $(document).ready(function() {
                 originalMessages = $(\'#messages-list\').html();
             }
             
-            var searchUrl = window.chatConfig.urls.searchMessages || "/crm-panel/my-chat/search-messages";
+            var searchUrl = window.chatConfig.urls.searchMessages || "/my-chat/search-messages";
             var searchData = { q: query, mode: \'full\' };
             
             // Show loading

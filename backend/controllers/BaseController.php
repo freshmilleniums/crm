@@ -20,7 +20,7 @@ class BaseController extends Controller
                 // not redirect, allow isGuest
             } else {
                 if (Yii::$app->user->isGuest) {
-                    header('Location: '.\yii\helpers\Url::to('/crm-panel/login'));
+                    header('Location: '.\yii\helpers\Url::to('/login'));
                     exit();
                 }
             }
