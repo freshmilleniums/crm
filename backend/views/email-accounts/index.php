@@ -439,7 +439,7 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                 },
                                 'label' => 'SMTP',
                             ],
-                            [
+                            /*[
                                 'attribute' => 'is_corporate',
                                 'format' => 'raw',
                                 'value' => function ($model) {
@@ -449,7 +449,7 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                     return '<span class="badge badge-secondary">No</span>';
                                 },
                                 'filter' => [0 => 'No', 1 => 'Yes'],
-                            ],
+                            ],*/
                             [
                                 'attribute' => 'is_active',
                                 'format' => 'raw',

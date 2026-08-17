@@ -69,10 +69,10 @@ use common\models\EmailAccount;
 
     <div class="row">
         <div class="col-md-6">
-            <?= $form->field($model, 'is_corporate')->checkbox() ?>
+            <?= $form->field($model, 'is_active')->checkbox() ?>
         </div>
         <div class="col-md-6">
-            <?= $form->field($model, 'is_active')->checkbox() ?>
+            <?php //= $form->field($model, 'is_corporate')->checkbox() ?>
         </div>
     </div>
 

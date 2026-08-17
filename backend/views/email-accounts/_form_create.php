@@ -81,10 +81,10 @@ use common\models\EmailAccount;
 
     <div class="row">
         <div class="col-md-6">
-            <?= $form->field($model, 'is_corporate')->checkbox()->label('') ?>
+            <?= $form->field($model, 'is_active')->checkbox()->label('') ?>
         </div>
         <div class="col-md-6">
-            <?= $form->field($model, 'is_active')->checkbox()->label('') ?>
+            <?php //= $form->field($model, 'is_corporate')->checkbox()->label('') ?>
         </div>
     </div>
 

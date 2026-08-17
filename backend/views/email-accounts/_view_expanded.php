@@ -13,6 +13,7 @@ use common\models\EmailAccount;
                 <p><strong>Email:</strong> <?= Html::encode($model->email) ?></p>
                 <p><strong>Display Label:</strong> <?= $model->label ? Html::encode($model->label) : '<span class="text-muted">No label</span>' ?></p>
                 <p><strong>Username:</strong> <?= Html::encode($model->username) ?></p>
+                <?php /*
                 <p><strong>Available for Employees:</strong>
                     <?php if ($model->is_corporate): ?>
                         <span class="badge badge-success">Yes</span>
@@ -20,6 +21,7 @@ use common\models\EmailAccount;
                         <span class="badge badge-secondary">No</span>
                     <?php endif; ?>
                 </p>
+                */?>
                 <p><strong>Status:</strong>
                     <?php if ($model->is_active): ?>
                         <span class="badge badge-success">Active</span>
