@@ -350,10 +350,24 @@ class User extends ActiveRecord implements IdentityInterface
 
         // 2. Insert into mail DB (for Dovecot)
         try {
+            $domain   = explode('@', $email)[1];
+            $localPart = explode('@', $email)[0];
+
+            $domainId = Yii::$app->mailDb->createCommand(
+                'SELECT id FROM mail_domains WHERE name = :name',
+                [':name' => $domain]
+            )->queryScalar();
+
+            if (!$domainId) {
+                Yii::error("mail_domain not found for: {$email}");
+                return null;
+            }
+
             Yii::$app->mailDb->createCommand()->insert('mail_users', [
-                'domain_id'  => 1,
+                'domain_id'  => $domainId,
                 'email'      => $email,
                 'password'   => $hash,
+                'home'       => '/var/mail/vhosts/' . $domain . '/' . $localPart,
                 'is_active'  => 1,
                 'created_at' => time(),
             ])->execute();
