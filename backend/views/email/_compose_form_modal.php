@@ -135,11 +135,7 @@ if ($isReply) {
             <button type="submit" class="btn btn-primary send-email-btn">
                 <i class="fas fa-paper-plane"></i> Send Email
             </button>
-            <?= Html::a(
-                '<i class=" "></i> Cancel',
-                ['index', 'account_id' => $account->id, 'account_type' => $accountType],
-                ['class' => 'btn btn-secondary']
-            ) ?>
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
         </div>
 
         <?php ActiveForm::end(); ?>
@@ -147,9 +143,47 @@ if ($isReply) {
 
 <?php
 $js = <<<JS
-$(document).on('submit', '#compose-email-form', function() {
+$(document).on('submit', '#compose-email-form', function(e) {
+    e.preventDefault();
+    
+    var form = $(this);
+    var button = form.find('.send-email-btn');
+    
     if (typeof tinymce !== 'undefined') {
         tinymce.triggerSave();
+    }
+    
+    var formData = new FormData(form[0]);
+    
+    button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Sending...');
+    
+    $.ajax({
+        type: 'POST',
+        url: form.prop('action'),
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                toastr.success(response.message);
+                $('#composeEmailModal').modal('hide');
+                location.reload();
+            } else {
+                toastr.error(response.message);
+                button.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Send Email');
+            }
+        },
+        error: function() {
+            toastr.error('Failed to send email');
+            button.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Send Email');
+        }
+    });
+});
+
+$('#composeEmailModal').on('hidden.bs.modal', function() {
+    if (typeof tinymce !== 'undefined') {
+        tinymce.remove();
     }
 });
 JS;

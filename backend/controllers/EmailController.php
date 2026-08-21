@@ -191,22 +191,22 @@ class EmailController extends Controller
         $account = $this->findAccountModel($account_id, $account_type);
 
         if (Yii::$app->request->isAjax) {
-            return $this->renderAjax('_compose_form', [
+            return $this->renderAjax('_compose_form_modal', [
                 'account' => $account,
                 'accountType' => $account_type,
+                'isModal'     => true,
             ]);
         }
 
         return $this->render('_compose_form', [
             'account' => $account,
             'accountType' => $account_type,
+            'isModal'     => false,
         ]);
     }
 
     public function actionSend()
     {
-        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-
         $accountId = Yii::$app->request->post('account_id');
         $accountType = Yii::$app->request->post('account_type');
         $to = Yii::$app->request->post('to');
@@ -214,33 +214,38 @@ class EmailController extends Controller
         $body = Yii::$app->request->post('body');
         $cc = Yii::$app->request->post('cc');
         $bcc = Yii::$app->request->post('bcc');
+        $isModal     = Yii::$app->request->post('is_modal') === '1';
         $attachments = UploadedFile::getInstancesByName('attachments');
 
         if (!$this->canAccessAccount($accountId, $accountType)) {
-            return [
-                'success' => false,
-                'message' => 'Access denied',
-            ];
+            if ($isModal) {
+                return json_encode(['success' => false, 'message' => 'Access denied']);
+            }
+            throw new ForbiddenHttpException('Access denied');
         }
 
         $account = $this->findAccountModel($accountId, $accountType);
 
         try {
             $smtpService = new SmtpService();
-            $messageId = $smtpService->send($account, $accountType, $to, $subject, $body, $cc, $bcc, $attachments);
+            $smtpService->send($account, $accountType, $to, $subject, $body, $cc, $bcc, $attachments);
 
-            return [
-                'success' => true,
-                'message' => 'Email sent successfully.',
-            ];
+            if ($isModal) {
+                return json_encode(['success' => true, 'message' => 'Email sent successfully.']);
+            }
+
+            Yii::$app->session->setFlash('success', 'Email sent successfully.');
+            return $this->redirect(['index', 'account_id' => $accountId, 'account_type' => $accountType]);
 
         } catch (\Exception $e) {
             Yii::error("Failed to send email: " . $e->getMessage(), 'email');
 
-            return [
-                'success' => false,
-                'message' => 'Failed to send email: ' . $e->getMessage(),
-            ];
+            if ($isModal) {
+                return json_encode(['success' => false, 'message' => 'Failed to send email: ' . $e->getMessage()]);
+            }
+
+            Yii::$app->session->setFlash('error', 'Failed to send email: ' . $e->getMessage());
+            return $this->redirect(Yii::$app->request->referrer ?: ['index']);
         }
     }
 
@@ -261,17 +266,19 @@ class EmailController extends Controller
         }
 
         if (Yii::$app->request->isAjax) {
-            return $this->renderAjax('_compose_form', [
+            return $this->renderAjax('_compose_form_modal', [
                 'account' => $account,
                 'accountType' => $type,
                 'replyTo' => $message,
+                'isModal'     => true,
             ]);
         }
 
-        return $this->render('_compose_form', [
+        return $this->render('reply', [
             'account' => $account,
             'accountType' => $type,
             'replyTo' => $message,
+            'isModal' => false,
         ]);
     }
 
@@ -292,17 +299,19 @@ class EmailController extends Controller
         }
 
         if (Yii::$app->request->isAjax) {
-            return $this->renderAjax('_compose_form', [
+            return $this->renderAjax('_compose_form_modal', [
                 'account' => $account,
                 'accountType' => $type,
-                'forwardMessage' => $message,
+                'replyTo' => $message,
+                'isModal'     => true,
             ]);
         }
 
-        return $this->render('_compose_form', [
+        return $this->render('forward', [
             'account' => $account,
             'accountType' => $type,
             'forwardMessage' => $message,
+            'isModal' => false,
         ]);
     }
 
