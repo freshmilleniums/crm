@@ -229,7 +229,7 @@ class Companies extends \yii\db\ActiveRecord
         $host = $this->smtp_server;
         $port = $this->smtp_port ?: 587;
         $username = urlencode($this->smtp_login);
-        $password = urlencode($this->smtp_password);
+        $password = urlencode($this->getDecryptedSmtpPassword() ?? '');
 
         return "{$scheme}://{$username}:{$password}@{$host}:{$port}";
     }
@@ -249,6 +249,23 @@ class Companies extends \yii\db\ActiveRecord
                 return 'smtp';  // Plain
             default:
                 return 'smtp';
+        }
+    }
+
+    public function getDecryptedSmtpPassword()
+    {
+        $key = Yii::$app->params['emailEncryptionKey'] ?? null;
+        if (empty($key) || empty($this->smtp_password)) {
+            return null;
+        }
+        try {
+            return Yii::$app->security->decryptByPassword(
+                base64_decode($this->smtp_password),
+                $key
+            );
+        } catch (\Exception $e) {
+            Yii::error('Failed to decrypt SMTP password for company ' . $this->id . ': ' . $e->getMessage(), 'email');
+            return null;
         }
     }
 }

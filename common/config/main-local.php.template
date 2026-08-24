@@ -23,12 +23,9 @@ return [
             ],
         ],
         'mailer' => [
-            'class' => \yii\symfonymailer\Mailer::class,
+            'class' => \common\components\CompanyMailer::class,
             'viewPath' => '@common/mail',
             'useFileTransport' => false,
-            'transport' => [
-                'dsn' => 'native://default',
-            ],
         ],
         'webSocket' => [
             'class' => 'common\components\WebSocketComponent',
