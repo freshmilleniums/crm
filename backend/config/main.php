@@ -47,11 +47,9 @@ return [
             'name' => 'advanced-backend',
         ],
         'mailer' => [
-            'class' => \yii\symfonymailer\Mailer::class,
-            'useFileTransport' => false, // false — real, true — in file
-            'transport' => [
-                'dsn' => 'native://default',
-            ],
+            'class' => \common\components\CompanyMailer::class,
+            'viewPath' => '@common/mail',
+            'useFileTransport' => false,
         ],
         'assetManager' => [
             'bundles' => [

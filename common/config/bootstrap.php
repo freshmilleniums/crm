@@ -15,17 +15,9 @@ if (isset(Yii::$app->params['company_id']) && Yii::$app->params['company_id']) {
         if ($company && $company->hasSmtpSettings()) {
             // Override mailer configuration
             Yii::$app->set('mailer', [
-                'class' => \yii\symfonymailer\Mailer::class,
+                'class' => \common\components\CompanyMailer::class,
                 'viewPath' => '@common/mail',
                 'useFileTransport' => false,
-                'transport' => [
-                    'dsn' => $company->getSmtpDsn(),
-                    /*'scheme' => $company->smtp_port == 465 ? 'smtps' : 'smtp',
-                    'host' => $company->smtp_server,
-                    'username' => $company->smtp_login,
-                    'password' => $company->smtp_password,
-                    'port' => $company->smtp_port ?: 587,*/
-                ],
             ]);
         }
     } catch (\Exception $e) {
