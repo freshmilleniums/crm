@@ -41,26 +41,20 @@ class SmtpService
 
     private function sendCorporate(UserCorporateEmail $account, $to, $subject, $body, $cc, $bcc, $attachments)
     {
-        $smtpHost       = Yii::$app->params['corporateSmtpHost'] ?? null;
-        $smtpPort       = Yii::$app->params['corporateSmtpPort'] ?? 587;
-        $smtpEncryption = Yii::$app->params['corporateSmtpEncryption'] ?? 'tls';
-
         $companyId = Yii::$app->params['company_id'] ?? null;
-        if ($companyId) {
-            $company = \common\models\Companies::findOne($companyId);
-            if ($company && !empty($company->email_domain)) {
-                $smtpHost = 'smtp.' . $company->email_domain;
-            }
+        $company = $companyId ? \common\models\Companies::findOne($companyId) : null;
+
+        if (!$company || !$company->hasSmtpSettings()) {
+            throw new Exception('Company SMTP not configured.');
         }
 
-        if (!$smtpHost) {
-            throw new Exception('Corporate SMTP host not configured.');
-        }
-
-        $password = $account->getDecryptedPassword();
+        $smtpHost       = $company->smtp_server;
+        $smtpPort       = $company->smtp_port ?: 587;
+        $smtpEncryption = ($smtpPort == 465) ? 'ssl' : 'tls';
+        $password       = $company->getDecryptedSmtpPassword();
 
         if (!$password) {
-            throw new Exception('Failed to decrypt corporate email password.');
+            throw new Exception('Failed to decrypt company SMTP password.');
         }
 
         $fromEmail = $account->email;
@@ -69,7 +63,7 @@ class SmtpService
 
         $this->dispatch(
             $smtpHost, $smtpPort, $smtpEncryption,
-            $account->email, $password,
+            $company->smtp_login, $password,
             $fromEmail, $fromName,
             $to, $cc, $bcc, $subject, $body, $attachments, $messageId
         );

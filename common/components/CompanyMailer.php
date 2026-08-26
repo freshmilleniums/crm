@@ -9,29 +9,37 @@ class CompanyMailer extends \yii\symfonymailer\Mailer
 {
     public function compose($view = null, array $params = [])
     {
-        $this->configureCompanyTransport();
-        return parent::compose($view, $params);
+        $company = $this->configureCompanyTransport();
+        $message = parent::compose($view, $params);
+
+        if ($company) {
+            $message->setFrom([$company->getSmtpFromEmail() => $company->name]);
+        } else {
+            $message->setFrom([Yii::$app->params['supportEmail'] => Yii::$app->name]);
+        }
+
+        return $message;
     }
 
-    private function configureCompanyTransport(): void
+    private function configureCompanyTransport(): ?Companies
     {
         try {
             $companyId = Yii::$app->params['company_id'] ?? null;
             if (!$companyId) {
                 $this->applyFallback('company_id not set in params');
-                return;
+                return null;
             }
 
             $company = Companies::findOne($companyId);
             if (!$company || !$company->hasSmtpSettings()) {
                 $this->applyFallback('Company not found or SMTP not configured');
-                return;
+                return null;
             }
 
             $password = $company->getDecryptedSmtpPassword();
             if (!$password) {
                 $this->applyFallback('Failed to decrypt SMTP password');
-                return;
+                return null;
             }
 
             $port = (int)($company->smtp_port ?: 587);
@@ -49,10 +57,12 @@ class CompanyMailer extends \yii\symfonymailer\Mailer
             $this->setTransport(
                 \Symfony\Component\Mailer\Transport::fromDsn($dsn)
             );
+            return $company;
 
         } catch (\Exception $e) {
             Yii::error('CompanyMailer: ' . $e->getMessage(), 'email');
             $this->applyFallback('Exception: ' . $e->getMessage());
+            return null;
         }
     }
 

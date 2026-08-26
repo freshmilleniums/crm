@@ -21,6 +21,7 @@ use backend\models\User;
  * @property int|null $smtp_port
  * @property string|null $smtp_login
  * @property string|null $smtp_password
+ * @property string|null $smtp_from_email
  * @property string|null $email_domain
  *
  * @property User $administrator
@@ -60,7 +61,7 @@ class Companies extends \yii\db\ActiveRecord
         return [
             [['name', 'landing_url', 'landing_api_key'], 'required'],
             [['status', 'administrator_id', 'smtp_port'], 'integer'],
-            [['name', 'url', 'wp_site_title', 'wp_admin_email', 'smtp_server', 'smtp_login', 'smtp_password'], 'string', 'max' => 255],
+            [['name', 'url', 'wp_site_title', 'wp_admin_email', 'smtp_server', 'smtp_login', 'smtp_password', 'smtp_from_email'], 'string', 'max' => 255],
             [['landing_url'], 'string', 'max' => 255],
             [['landing_url'], 'url'],
             [['landing_api_key'], 'string', 'min' => 6, 'max' => 64],
@@ -89,6 +90,7 @@ class Companies extends \yii\db\ActiveRecord
             [['smtp_port'], 'integer', 'min' => 1, 'max' => 65535],
             [['distribution_position'], 'integer'],
             [['distribution_position'], 'default', 'value' => 0],
+            [['smtp_from_email'], 'email', 'skipOnEmpty' => true],
         ];
     }
 
@@ -267,5 +269,14 @@ class Companies extends \yii\db\ActiveRecord
             Yii::error('Failed to decrypt SMTP password for company ' . $this->id . ': ' . $e->getMessage(), 'email');
             return null;
         }
+    }
+
+    /**
+     * Returns the effective From email address.
+     * Uses smtp_from_email if set, falls back to smtp_login.
+     */
+    public function getSmtpFromEmail(): string
+    {
+        return !empty($this->smtp_from_email) ? $this->smtp_from_email : (string)$this->smtp_login;
     }
 }
