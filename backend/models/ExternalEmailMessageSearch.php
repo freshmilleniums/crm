@@ -15,6 +15,8 @@ class ExternalEmailMessageSearch extends Model
     public $subject;
     public $date_from;
     public $date_to;
+    public $to_emails;
+
 
     public function rules()
     {
@@ -22,6 +24,7 @@ class ExternalEmailMessageSearch extends Model
             [['email_account_id'], 'integer'],
             [['filter', 'from_email', 'subject'], 'string'],
             [['date_from', 'date_to'], 'safe'],
+            [['to_emails'], 'string'],
         ];
     }
 
@@ -102,6 +105,18 @@ class ExternalEmailMessageSearch extends Model
             if ($dateTo) {
                 $query->andWhere(['<=', $receivedField, $dateTo]);
             }
+        }
+
+        if ($this->to_emails) {
+            $toField  = $needsAlias ? 'm.to_emails'  : 'to_emails';
+            $ccField  = $needsAlias ? 'm.cc_emails'  : 'cc_emails';
+            $bccField = $needsAlias ? 'm.bcc_emails' : 'bcc_emails';
+
+            $query->andWhere(['or',
+                ['like', $toField,  $this->to_emails],
+                ['like', $ccField,  $this->to_emails],
+                ['like', $bccField, $this->to_emails],
+            ]);
         }
 
         return $dataProvider;

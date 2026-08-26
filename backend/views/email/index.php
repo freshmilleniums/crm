@@ -491,7 +491,7 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                     return Html::encode($model->from_name ?: $model->from_email);
                                                 },
                                                 'label' => 'From',
-                                                'headerOptions' => ['style' => 'width: 25%;'],
+                                                'headerOptions' => ['style' => 'width: 20%;'],
                                                 'contentOptions' => ['style' => 'max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'],
                                             ],
                                             [
@@ -500,13 +500,39 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                 'value' => function ($model) {
                                                     return Html::encode($model->subject ?: '(No Subject)');
                                                 },
-                                                'headerOptions' => ['style' => 'width: 50%;'],
+                                                'headerOptions' => ['style' => 'width: 45%;'],
+                                            ],
+                                            [
+                                                'attribute' => 'to_emails',
+                                                'format' => 'raw',
+                                                'label' => 'To',
+                                                'filter' => $filter === 'sent' ? Html::activeInput('text', $searchModel, 'to_emails', ['class' => 'form-control']) : false,
+                                                'value' => function ($model) {
+                                                    $to  = json_decode($model->to_emails, true) ?? [];
+                                                    $cc  = json_decode($model->cc_emails,  true) ?? [];
+                                                    $bcc = json_decode($model->bcc_emails, true) ?? [];
+
+                                                    $html = Html::encode(implode(', ', $to));
+
+                                                    if (!empty($cc)) {
+                                                        $html .= '<br><strong>CC:</strong><br>' . Html::encode(implode(', ', $cc));
+                                                    }
+
+                                                    if (!empty($bcc)) {
+                                                        $html .= '<br><strong>BCC:</strong><br>' . Html::encode(implode(', ', $bcc));
+                                                    }
+
+                                                    return $html;
+                                                },
+                                                'headerOptions' => ['style' => 'width: 20%;'],
+                                                'contentOptions' => ['style' => 'max-width: 180px; overflow: hidden; text-overflow: ellipsis; '],
+                                                'visible' => $filter === 'sent',
                                             ],
                                             [
                                                 'attribute' => 'received_at',
                                                 'format'    => ['date', 'php:m/d/Y H:i'],
                                                 'label' => 'Date',
-                                                'headerOptions' => ['style' => 'width: 25%;'],
+                                                'headerOptions' => ['style' => 'width: 15%;'],
                                             ],
                                         ],
                                         'summaryOptions' => ['class' => 'summary mb-2'],

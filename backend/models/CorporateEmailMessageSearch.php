@@ -16,6 +16,8 @@ class CorporateEmailMessageSearch extends Model
     public $date_from;
     public $date_to;
     public $is_read;
+    public $to_emails;
+
 
     public function rules()
     {
@@ -24,6 +26,7 @@ class CorporateEmailMessageSearch extends Model
             [['filter', 'from_email', 'subject'], 'string'],
             [['date_from', 'date_to'], 'safe'],
             [['is_read'], 'boolean'],
+            [['to_emails'], 'string'],
         ];
     }
 
@@ -85,6 +88,14 @@ class CorporateEmailMessageSearch extends Model
 
         if ($this->is_read !== null && $this->is_read !== '') {
             $query->andWhere(['is_read' => $this->is_read]);
+        }
+
+        if ($this->to_emails) {
+            $query->andWhere(['or',
+                ['like', 'to_emails', $this->to_emails],
+                ['like', 'cc_emails', $this->to_emails],
+                ['like', 'bcc_emails', $this->to_emails],
+            ]);
         }
 
         return $dataProvider;

@@ -83,6 +83,7 @@ class SmtpService
         $message->from_name = $fromName;
         $message->to_emails = json_encode($this->parseRecipients($to));
         $message->cc_emails = $cc ? json_encode($this->parseRecipients($cc)) : null;
+        $message->bcc_emails = $bcc ? json_encode($this->parseRecipients($bcc)) : null;
         $message->subject = $subject;
         $message->body_html = $body;
         $message->body_text = strip_tags($body);
@@ -138,6 +139,7 @@ class SmtpService
         $message->from_name = $fromName;
         $message->to_emails = json_encode($this->parseRecipients($to));
         $message->cc_emails = $cc ? json_encode($this->parseRecipients($cc)) : null;
+        $message->bcc_emails = $bcc ? json_encode($this->parseRecipients($bcc)) : null;
         $message->subject = $subject;
         $message->body_html = $body;
         $message->body_text = strip_tags($body);
