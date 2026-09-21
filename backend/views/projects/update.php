@@ -3,6 +3,7 @@ use yii\helpers\Html;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Project */
+/* @var $documents common\models\ProjectsDocuments[] */
 /* @var $employees array */
 ?>
 
@@ -10,6 +11,7 @@ use yii\helpers\Html;
     <div class="card-body">
         <?= $this->render('_form', [
             'model' => $model,
+            'documents' => $documents,
             'employees' => $employees
         ]) ?>
     </div>

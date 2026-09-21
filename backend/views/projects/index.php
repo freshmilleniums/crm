@@ -356,7 +356,7 @@ $(document).on('click', '.update-project-send', function (e){
     let button = $(this);
     let form = button.closest('form');
     let action = form.prop('action');
-    let data = form.serialize();
+    let formData = new FormData(form[0]);
     
     if (form.find('.has-error').length) {
         return false;
@@ -367,7 +367,9 @@ $(document).on('click', '.update-project-send', function (e){
     $.ajax({
         type: 'POST',
         url: action,
-        data: data,
+        data: formData,
+        processData: false,
+        contentType: false,
         success: function (response) {
             response = JSON.parse(response);
             if (typeof response.success != 'undefined') {

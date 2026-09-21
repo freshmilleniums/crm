@@ -23,6 +23,7 @@ use yii\behaviors\TimestampBehavior;
  * @property User $employee
  * @property User $creator
  * @property Task[] $tasks
+ * @property ProjectsDocuments[] $documents
  */
 class Project extends \yii\db\ActiveRecord
 {
@@ -212,5 +213,10 @@ class Project extends \yii\db\ActiveRecord
     public function getTasks()
     {
         return $this->hasMany(Task::class, ['project_id' => 'id']);
+    }
+
+    public function getDocuments()
+    {
+        return $this->hasMany(ProjectsDocuments::class, ['project_id' => 'id']);
     }
 }

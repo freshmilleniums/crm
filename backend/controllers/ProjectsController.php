@@ -10,6 +10,7 @@ use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
+use yii\web\UploadedFile;
 
 /**
  * ProjectsController implements the CRUD actions for Project model.
@@ -27,6 +28,7 @@ class ProjectsController extends BaseController
                 'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
+                    'delete-document' => ['POST'],
                 ],
             ],
         ];
@@ -76,23 +78,52 @@ class ProjectsController extends BaseController
         $model = new Project();
         $model->created_by = Yii::$app->user->id;
 
+        $documents = [new \common\models\ProjectsDocuments()];
         $employees = $this->getEmployeesList();
 
         if (Yii::$app->request->isPost && $model->load(Yii::$app->request->post())) {
 
+            $documents = \backend\models\MultipleModel::createMultiple(\common\models\ProjectsDocuments::class);
+            \backend\models\MultipleModel::loadMultiple($documents, Yii::$app->request->post());
+
+            $transaction = Yii::$app->db->beginTransaction();
             $success = false;
             $message = '';
 
             try {
-                if ($model->save()) {
+                $flag = $model->save();
+
+                if ($flag) {
+                    foreach ($documents as $index => $doc) {
+                        $doc->project_id = $model->id;
+                        $doc->file = UploadedFile::getInstance($doc, "[{$index}]file");
+
+                        if ($doc->file) {
+                            if ($doc->upload()) {
+                                if (!$doc->save(false)) {
+                                    $flag = false;
+                                    break;
+                                }
+                            } else {
+                                $flag = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if ($flag) {
+                    $transaction->commit();
                     \common\services\ActionLogService::logEntityCreate($model, \common\models\ActionLog::ENTITY_PROJECT);
                     $success = true;
                     $message = 'Project created successfully';
                 } else {
+                    $transaction->rollBack();
                     $message = 'Failed to create project';
                 }
 
             } catch (\Exception $e) {
+                $transaction->rollBack();
                 $message = 'Error: ' . $e->getMessage();
             }
 
@@ -107,6 +138,7 @@ class ProjectsController extends BaseController
                     'message' => $message,
                     'tpl' => $this->renderAjax('_form_create', [
                         'model' => $model,
+                        'documents' => $documents,
                         'employees' => $employees,
                     ])
                 ]);
@@ -117,6 +149,7 @@ class ProjectsController extends BaseController
         return json_encode([
             'tpl' => $this->renderAjax('_form_create', [
                 'model' => $model,
+                'documents' => $documents,
                 'employees' => $employees,
             ])
         ]);
@@ -130,48 +163,111 @@ class ProjectsController extends BaseController
      */
     public function actionUpdate($id)
     {
-        try {
-            $model = $this->findModel($id);
-        } catch (NotFoundHttpException $e) {
-            return json_encode([
-                'success' => false,
-                'message' => 'Project not found'
-            ]);
-        }
+        $model = $this->findModel($id);
 
+        $documents = $model->documents;
         $employees = $this->getEmployeesList();
 
-        if ($this->request->isPost && $model->load($this->request->post())) {
-            $logData = \common\services\ActionLogService::prepareEntityUpdate(
-                $model,
-                \common\models\ActionLog::ENTITY_PROJECT
+        if (count($documents) == 0) {
+            $documents = [new \common\models\ProjectsDocuments()];
+        }
+
+        if ($model->load(Yii::$app->request->post())) {
+
+            $oldDocuments = $model->documents;
+
+            $documents = \backend\models\MultipleModel::createMultiple(\common\models\ProjectsDocuments::class, $oldDocuments);
+            \backend\models\MultipleModel::loadMultiple($documents, Yii::$app->request->post());
+
+            $deletedDocumentIDs = array_diff(
+                array_map(function($doc) { return $doc->id; }, $oldDocuments),
+                array_filter(array_map(function($doc) { return $doc->id; }, $documents))
             );
 
-            if (empty($employees)) {
-                $model->employee_id = $model->getOldAttribute('employee_id');
-            }
+            $transaction = Yii::$app->db->beginTransaction();
 
-            if ($model->save()) {
-                \common\services\ActionLogService::commitEntityUpdate($logData);
-                return json_encode([
-                    'success' => true,
-                    'message' => 'Project updated successfully'
-                ]);
-            } else {
-                return json_encode([
-                    'success' => false,
-                    'tpl' => $this->renderAjax('update', [
-                        'model' => $model,
-                        'employees' => $employees,
-                    ])
-                ]);
+            try {
+                $logData = \common\services\ActionLogService::prepareEntityUpdate(
+                    $model,
+                    \common\models\ActionLog::ENTITY_PROJECT
+                );
+
+                if (empty($employees)) {
+                    $model->employee_id = $model->getOldAttribute('employee_id');
+                }
+
+                $flag = $model->save();
+
+                $deletedDocumentNames = [];
+
+                if ($flag && !empty($deletedDocumentIDs)) {
+                    $deletedDocuments = \common\models\ProjectsDocuments::find()
+                        ->where(['id' => $deletedDocumentIDs])
+                        ->all();
+
+                    $deletedDocumentNames = array_map(function($doc) {
+                        return $doc->getFileName();
+                    }, $deletedDocuments);
+
+                    \common\models\ProjectsDocuments::deleteAll(['id' => $deletedDocumentIDs]);
+                }
+
+                $addedDocumentNames = [];
+
+                if ($flag) {
+                    foreach ($documents as $index => $doc) {
+                        $doc->project_id = $model->id;
+                        $doc->file = UploadedFile::getInstance($doc, "[{$index}]file");
+
+                        if ($doc->file) {
+                            if ($doc->upload()) {
+                                if (!$doc->save(false)) {
+                                    $flag = false;
+                                    break;
+                                } else {
+                                    $addedDocumentNames[] = $doc->getFileName();
+                                }
+                            } else {
+                                $flag = false;
+                                break;
+                            }
+                        } else {
+                            if ($doc->isNewRecord) {
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+                if ($flag) {
+                    $additionalChanges = [];
+
+                    if (!empty($addedDocumentNames)) {
+                        $additionalChanges['documents_added'] = $addedDocumentNames;
+                    }
+                    if (!empty($deletedDocumentNames)) {
+                        $additionalChanges['documents_deleted'] = $deletedDocumentNames;
+                    }
+
+                    \common\services\ActionLogService::commitEntityUpdate($logData, $additionalChanges);
+
+                    $transaction->commit();
+                    return json_encode(['success' => true, 'message' => 'Project updated successfully']);
+                } else {
+                    $transaction->rollBack();
+                    return json_encode(['success' => false, 'message' => 'Failed to save project']);
+                }
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                return json_encode(['success' => false, 'message' => 'Error: ' . $e->getMessage()]);
             }
         }
 
         return json_encode([
-            'success' => true,
             'tpl' => $this->renderAjax('update', [
                 'model' => $model,
+                'documents' => $documents,
                 'employees' => $employees,
             ])
         ]);
@@ -358,5 +454,59 @@ class ProjectsController extends BaseController
         }
 
         return $result;
+    }
+
+    public function actionDownloadDocument($id)
+    {
+        $document = \common\models\ProjectsDocuments::findOne($id);
+
+        if (!$document) {
+            throw new NotFoundHttpException('Document not found.');
+        }
+
+        if (!file_exists($document->getFilePath())) {
+            throw new NotFoundHttpException('File not found.');
+        }
+
+        return Yii::$app->response->sendFile(
+            $document->getFilePath(),
+            $document->getFileName(),
+            ['inline' => false]
+        );
+    }
+
+    public function actionDeleteDocument($id)
+    {
+        $document = \common\models\ProjectsDocuments::findOne($id);
+
+        if (!$document) {
+            return json_encode([
+                'success' => false,
+                'message' => 'Document not found'
+            ]);
+        }
+
+        $projectId = $document->project_id;
+        $fileName  = $document->getFileName();
+
+        if ($document->delete()) {
+            \common\services\ActionLogService::log(
+                \common\models\ActionLog::ENTITY_PROJECT,
+                $projectId,
+                'delete_document',
+                ['document_name' => $fileName],
+                null
+            );
+
+            return json_encode([
+                'success' => true,
+                'message' => 'Document deleted successfully'
+            ]);
+        }
+
+        return json_encode([
+            'success' => false,
+            'message' => 'Failed to delete document'
+        ]);
     }
 }
