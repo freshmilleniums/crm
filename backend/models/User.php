@@ -418,10 +418,14 @@ class User extends \common\models\User
             return '0 minutes';
         }
 
-        $hours   = floor($seconds / 3600);
+        $months  = floor($seconds / 2592000);
+        $days    = floor(($seconds % 2592000) / 86400);
+        $hours   = floor(($seconds % 86400) / 3600);
         $minutes = floor(($seconds % 3600) / 60);
 
         $parts = [];
+        if ($months > 0)  $parts[] = $months . ' month' . ($months > 1 ? 's' : '');
+        if ($days > 0)    $parts[] = $days . ' day' . ($days > 1 ? 's' : '');
         if ($hours > 0)   $parts[] = $hours . ' hour' . ($hours > 1 ? 's' : '');
         if ($minutes > 0) $parts[] = $minutes . ' minute' . ($minutes > 1 ? 's' : '');
 

@@ -161,8 +161,13 @@ use common\models\Task;
                                 ],
                                 [
                                     'attribute' => 'last_activity',
-                                    'value'     => $model->last_activity ? date('Y-m-d H:i:s', $model->last_activity) : 'Never',
                                     'label'     => 'Last Activity',
+                                    'value'     => !$model->last_activity
+                                        ? 'Never'
+                                        : ($model->isOnline()
+                                            ? 'Online now'
+                                            : date('Y-m-d H:i:s', $model->last_activity)),
+                                    'format' => 'raw',
                                 ],
                                 [
                                     'attribute' => 'created_at',

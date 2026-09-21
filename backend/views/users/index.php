@@ -45,6 +45,10 @@ $this->registerCss($css);
 $script = "
 
 var selectedEmployeeIds = [];
+var anchorIndex = null;
+var anchorState = null;
+var lastShiftRange = null;
+var expandDirection = null;
 
 function getActionUrl(action) {
     var url = '';
@@ -262,20 +266,100 @@ $(document).on('click', '.cancel-action', function (e){
     });
 });
 
-// Employee checkbox selection
-$(document).on('change', '.employee-checkbox', function() {
-    var employeeId = parseInt($(this).val());
+// Employee checkbox selection with Shift support (Gmail-style)
+$(document).on('click', '.employee-checkbox', function(e) {
+    var checkboxes = $('.employee-checkbox');
+    var currentIndex = checkboxes.index(this);
 
-    if ($(this).is(':checked')) {
-        if (!selectedEmployeeIds.includes(employeeId)) {
-            selectedEmployeeIds.push(employeeId);
-        }
+    if (e.shiftKey && anchorIndex !== null) {
+        setTimeout(function() {
+            var newFrom, newTo;
+
+            var insideRange = lastShiftRange &&
+                currentIndex >= lastShiftRange.from &&
+                currentIndex <= lastShiftRange.to;
+
+            var isShrink = !!insideRange;
+
+            if (isShrink) {
+                var shrinkFrom, shrinkTo;
+                var shrinkRight = expandDirection === 'right';
+            
+                if (shrinkRight) {
+                    shrinkFrom = currentIndex;
+                    shrinkTo   = lastShiftRange.to;
+                    newFrom    = lastShiftRange.from;
+                    newTo      = currentIndex - 1;
+                } else {
+                    shrinkFrom = lastShiftRange.from;
+                    shrinkTo   = currentIndex;
+                    newFrom    = currentIndex + 1;
+                    newTo      = lastShiftRange.to;
+                }            
+               
+                for (var i = shrinkFrom; i <= shrinkTo; i++) {
+                    checkboxes.eq(i).prop('checked', false);                   
+                }
+            
+                if (newFrom <= newTo) {
+                    lastShiftRange = { from: newFrom, to: newTo };
+                    expandDirection = newFrom < anchorIndex ? 'left' : 'right';
+                    for (var i = newFrom; i <= newTo; i++) {
+                        checkboxes.eq(i).prop('checked', true);
+                    }
+                } else {
+                    lastShiftRange = null;
+                    expandDirection = null;
+                }
+            
+            } else {
+                newFrom = Math.min(anchorIndex, currentIndex);
+                newTo   = Math.max(anchorIndex, currentIndex);
+            
+                if (lastShiftRange) {
+                    newFrom = Math.min(newFrom, lastShiftRange.from);
+                    newTo   = Math.max(newTo, lastShiftRange.to);
+                }
+            
+                expandDirection = currentIndex >= anchorIndex ? 'right' : 'left';
+            
+                for (var i = newFrom; i <= newTo; i++) {
+                    checkboxes.eq(i).prop('checked', true);                   
+                }
+            
+                lastShiftRange = { from: newFrom, to: newTo };
+            }
+
+            selectedEmployeeIds = [];
+            checkboxes.each(function() {
+                if ($(this).is(':checked')) {
+                    selectedEmployeeIds.push(parseInt($(this).val()));
+                }
+            });
+            
+            updateBulkButton();
+        }, 0);
+
     } else {
-        selectedEmployeeIds = selectedEmployeeIds.filter(function(id) {
-            return id !== employeeId;
-        });
-    }
+        var isChecked = $(this).is(':checked');
+        var employeeId = parseInt($(this).val());
 
+        anchorIndex = currentIndex;
+        anchorState = isChecked;
+        lastShiftRange = null;
+        expandDirection = null;
+
+        if (isChecked) {
+            if (!selectedEmployeeIds.includes(employeeId)) selectedEmployeeIds.push(employeeId);
+        } else {
+            selectedEmployeeIds = selectedEmployeeIds.filter(function(id) { return id !== employeeId; });
+        }
+
+        updateBulkButton();
+    }
+});
+
+function updateBulkButton() {
     var bulkAssignButton = $('#bulk-assign-investors-btn');
     if (selectedEmployeeIds.length > 0) {
         bulkAssignButton.prop('disabled', false);
@@ -284,7 +368,7 @@ $(document).on('change', '.employee-checkbox', function() {
         bulkAssignButton.prop('disabled', true);
         bulkAssignButton.text('Assign Investors');
     }
-});
+}
 
 // Open assign investors modal
 $(document).on('click', '#bulk-assign-investors-btn', function(e) {
@@ -843,6 +927,21 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                                 return [];
                                                         }
                                                     },
+                                                ],
+                                                [
+                                                    'attribute' => 'last_activity',
+                                                    'label'     => 'Last Activity',
+                                                    'value'     => function($model) {
+                                                        if (!$model->last_activity) {
+                                                            return 'Never';
+                                                        }
+                                                        if ($model->isOnline()) {
+                                                            return '<span style="color: green; font-weight: bold;">Online</span>';
+                                                        }
+                                                        return date('Y-m-d H:i:s', $model->last_activity);
+                                                    },
+                                                    'format'  => 'raw',
+                                                    'visible' => $tab['role'] === 'employee',
                                                 ],
                                                 [
                                                     'attribute' => 'created_at',
