@@ -147,6 +147,10 @@ class ProjectsController extends BaseController
                 \common\models\ActionLog::ENTITY_PROJECT
             );
 
+            if (empty($employees)) {
+                $model->employee_id = $model->getOldAttribute('employee_id');
+            }
+
             if ($model->save()) {
                 \common\services\ActionLogService::commitEntityUpdate($logData);
                 return json_encode([
@@ -221,7 +225,12 @@ class ProjectsController extends BaseController
         $model->net_worth = Yii::$app->request->post('net_worth') ?: null;
         $model->roi = Yii::$app->request->post('roi') ?: null;
         $model->status = Yii::$app->request->post('status') ?: null;
-        $model->employee_id = Yii::$app->request->post('employee_id') ?: null;
+
+        $employees = $this->getEmployeesList();
+
+        if (!empty($employees)) {
+            $model->employee_id = Yii::$app->request->post('employee_id') ?: null;
+        }
 
         $logData = \common\services\ActionLogService::prepareEntityUpdate(
             $model,
@@ -276,9 +285,10 @@ class ProjectsController extends BaseController
         $employees = $this->getEmployeesList();
 
         if (Yii::$app->request->isPost) {
-            $employeeId = Yii::$app->request->post('employee_id');
 
-            $model->employee_id = $employeeId;
+            if (!empty($employees)) {
+                $model->employee_id = Yii::$app->request->post('employee_id');
+            }
 
             $logData = \common\services\ActionLogService::prepareEntityUpdate(
                 $model,
@@ -332,12 +342,15 @@ class ProjectsController extends BaseController
      */
     protected function getEmployeesList()
     {
-        $employees = User::find()
+        $query = User::find()
             ->innerJoin('auth_assignment', 'auth_assignment.user_id = user.id')
             ->where(['auth_assignment.item_name' => 'employee'])
-            ->andWhere(['user.administrator_id' => Yii::$app->user->id])
-            ->select(['user.id', 'user.first_name', 'user.last_name'])
-            ->all();
+            ->select(['user.id', 'user.first_name', 'user.last_name']);
+
+        if (!Yii::$app->user->can('super-administrator')) {
+            $query->andWhere(['user.administrator_id' => Yii::$app->user->id]);
+        }
+        $employees = $query->all();
 
         $result = [];
         foreach ($employees as $employee) {

@@ -203,6 +203,10 @@ class TasksController extends BaseController
                     \common\models\ActionLog::ENTITY_TASK
                 );
 
+                if (empty($employees)) {
+                    $model->assigned_to = $model->getOldAttribute('assigned_to');
+                }
+
                 $flag = $model->save();
 
                 $deletedDocumentNames = [];
@@ -398,12 +402,15 @@ class TasksController extends BaseController
      */
     protected function getEmployeesList()
     {
-        $employees = User::find()
+        $query = User::find()
             ->innerJoin('auth_assignment', 'auth_assignment.user_id = user.id')
             ->where(['auth_assignment.item_name' => 'employee'])
-            ->andWhere(['user.administrator_id' => Yii::$app->user->id])
-            ->select(['user.id', 'user.first_name', 'user.last_name'])
-            ->all();
+            ->select(['user.id', 'user.first_name', 'user.last_name']);
+
+        if (!Yii::$app->user->can('super-administrator')) {
+            $query->andWhere(['user.administrator_id' => Yii::$app->user->id]);
+        }
+        $employees = $query->all();
 
         $result = [];
         foreach ($employees as $employee) {
