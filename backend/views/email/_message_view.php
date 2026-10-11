@@ -27,7 +27,7 @@ $ccEmails = is_array($message->getCcEmailsArray()) ? $message->getCcEmailsArray(
                     <?php endif; ?>
                 </div>
                 <div class="col-md-6 text-right">
-                    <p><strong>Date:</strong> <?= Yii::$app->formatter->asDatetime($message->received_at) ?></p>
+                    <p><strong>Date:</strong> <?= date('m/d/Y H:i', $message->received_at) ?></p>
                     <?php if ($message->has_attachments): ?>
                         <p>
                             <i class="fas fa-paperclip"></i>

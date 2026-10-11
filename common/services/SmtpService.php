@@ -39,7 +39,38 @@ class SmtpService
         return $this->sendExternal($account, $to, $subject, $body, $cc, $bcc, $attachments);
     }
 
-    private function sendCorporate(UserCorporateEmail $account, $to, $subject, $body, $cc, $bcc, $attachments)
+    /**
+     * Send email with disk-based file attachments (e.g. template documents).
+     * Unlike send(), file attachments are passed as absolute paths, not UploadedFile.
+     *
+     * @param UserCorporateEmail|EmailAccount $account
+     * @param string $accountType 'corporate' | 'external'
+     * @param string $to
+     * @param string $subject
+     * @param string $body
+     * @param string|null $cc
+     * @param string|null $bcc
+     * @param array $fileAttachments [['path' => '/abs/path', 'name' => 'file.pdf', 'mime' => 'application/pdf'], ...]
+     * @return string Message-ID
+     */
+    public function sendWithFileAttachments(
+        $account,
+        string $accountType,
+        string $to,
+        string $subject,
+        string $body,
+        ?string $cc = null,
+        ?string $bcc = null,
+        array $fileAttachments = []
+    ): string {
+        if ($accountType === 'corporate') {
+            return $this->sendCorporate($account, $to, $subject, $body, $cc, $bcc, null, $fileAttachments);
+        }
+
+        return $this->sendExternal($account, $to, $subject, $body, $cc, $bcc, null, $fileAttachments);
+    }
+
+    private function sendCorporate(UserCorporateEmail $account, $to, $subject, $body, $cc, $bcc, $attachments, array $fileAttachments = [])
     {
         $companyId = Yii::$app->params['company_id'] ?? null;
         $company = $companyId ? \common\models\Companies::findOne($companyId) : null;
@@ -65,7 +96,7 @@ class SmtpService
             $smtpHost, $smtpPort, $smtpEncryption,
             $company->smtp_login, $password,
             $fromEmail, $fromName,
-            $to, $cc, $bcc, $subject, $body, $attachments, $messageId
+            $to, $cc, $bcc, $subject, $body, $attachments, $messageId, $fileAttachments
         );
 
         $message = new CorporateEmailMessage();
@@ -84,7 +115,7 @@ class SmtpService
         $message->sent_at = time();
         $message->received_at = time();
         $message->is_read = 1;
-        $message->has_attachments = !empty($attachments) ? 1 : 0;
+        $message->has_attachments = (!empty($attachments) || !empty($fileAttachments)) ? 1 : 0;
 
         if (!$message->save()) {
             Yii::error('Failed to save outgoing corporate message: ' . json_encode($message->errors), 'email');
@@ -95,10 +126,14 @@ class SmtpService
             $this->saveOutgoingAttachments($message, $attachments, 'corporate');
         }
 
+        if (!empty($fileAttachments)) {
+            $this->saveOutgoingFileAttachments($message, $fileAttachments, 'corporate');
+        }
+
         return $messageId;
     }
 
-    private function sendExternal(EmailAccount $account, $to, $subject, $body, $cc, $bcc, $attachments)
+    private function sendExternal(EmailAccount $account, $to, $subject, $body, $cc, $bcc, $attachments, array $fileAttachments = [])
     {
         $encryptionMap = [
             'SSL' => 'ssl',
@@ -121,7 +156,7 @@ class SmtpService
             $account->smtp_host, $account->smtp_port, $smtpEncryption,
             $account->username, $password,
             $fromEmail, $fromName,
-            $to, $cc, $bcc, $subject, $body, $attachments, $messageId
+            $to, $cc, $bcc, $subject, $body, $attachments, $messageId, $fileAttachments
         );
 
         $message = new ExternalEmailMessage();
@@ -139,7 +174,7 @@ class SmtpService
         $message->body_text = strip_tags($body);
         $message->sent_at = time();
         $message->received_at = time();
-        $message->has_attachments = !empty($attachments) ? 1 : 0;
+        $message->has_attachments = (!empty($attachments) || !empty($fileAttachments)) ? 1 : 0;
 
         if (!$message->save()) {
             Yii::error('Failed to save outgoing external message: ' . json_encode($message->errors), 'email');
@@ -150,10 +185,14 @@ class SmtpService
             $this->saveOutgoingAttachments($message, $attachments, 'external');
         }
 
+        if (!empty($fileAttachments)) {
+            $this->saveOutgoingFileAttachments($message, $fileAttachments, 'external');
+        }
+
         return $messageId;
     }
 
-    private function dispatch($host, $port, $encryption, $username, $password, $fromEmail, $fromName, $to, $cc, $bcc, $subject, $body, $attachments, $messageId)
+    private function dispatch($host, $port, $encryption, $username, $password, $fromEmail, $fromName, $to, $cc, $bcc, $subject, $body, $attachments, $messageId, array $fileAttachments = [])
     {
         $scheme = ($encryption === 'ssl' || $port == 465) ? 'smtps' : 'smtp';
 
@@ -199,6 +238,19 @@ class SmtpService
                 foreach ($attachments as $file) {
                     if ($file instanceof UploadedFile && $file->tempName) {
                         $email->attachFromPath($file->tempName, $file->name, $file->type);
+                    }
+                }
+            }
+
+            // Disk-based attachments (e.g. from template documents)
+            if (!empty($fileAttachments)) {
+                foreach ($fileAttachments as $file) {
+                    if (!empty($file['path']) && file_exists($file['path'])) {
+                        $email->attachFromPath(
+                            $file['path'],
+                            $file['name'] ?? basename($file['path']),
+                            $file['mime'] ?? 'application/octet-stream'
+                        );
                     }
                 }
             }
@@ -274,6 +326,34 @@ class SmtpService
                 if (!$attachmentModel->save()) {
                     Yii::error('Failed to save outgoing attachment: ' . json_encode($attachmentModel->errors), 'email');
                 }
+            }
+        }
+    }
+
+    /**
+     * Save disk-based file attachments (e.g. template documents) to the DB
+     * so they appear in the Sent folder view.
+     * Files are NOT copied — the original path is referenced directly.
+     */
+    private function saveOutgoingFileAttachments($message, array $fileAttachments, string $accountType): void
+    {
+        foreach ($fileAttachments as $file) {
+            if (empty($file['path']) || !file_exists($file['path'])) {
+                continue;
+            }
+
+            $attachmentModel = $accountType === 'corporate'
+                ? new CorporateEmailAttachment()
+                : new ExternalEmailAttachment();
+
+            $attachmentModel->message_id  = $message->id;
+            $attachmentModel->filename    = $file['name'] ?? basename($file['path']);
+            $attachmentModel->content_type = $file['mime'] ?? 'application/octet-stream';
+            $attachmentModel->size        = filesize($file['path']);
+            $attachmentModel->file_path   = $file['path'];
+
+            if (!$attachmentModel->save()) {
+                Yii::error('Failed to save outgoing file attachment: ' . json_encode($attachmentModel->errors), 'email');
             }
         }
     }

@@ -21,6 +21,8 @@ use backend\models\ExternalEmailMessageSearch;
 use common\services\EmailSyncService;
 use common\services\SmtpService;
 use backend\models\User;
+use common\models\Template;
+use common\models\UserSentTemplate;
 
 /**
  * EmailController handles email operations for all users
@@ -45,6 +47,7 @@ class EmailController extends Controller
                     'delete' => ['post'],
                     'sync' => ['post'],
                     'sync-all' => ['post'],
+                    'send-template' => ['post'],
                 ],
             ],
         ];
@@ -849,5 +852,154 @@ class EmailController extends Controller
         }
 
         return $model;
+    }
+
+    /**
+     * Show compose-template form for the given email account.
+     */
+    public function actionComposeTemplate($account_id, $account_type)
+    {
+        if (!$this->canAccessAccount($account_id, $account_type)) {
+            throw new ForbiddenHttpException('Access denied');
+        }
+
+        $templates = \yii\helpers\ArrayHelper::map(
+            Template::find()->orderBy(['title' => SORT_ASC])->all(),
+            'id',
+            function ($t) {
+                return '[' . $t->getCategoryName() . '] ' . $t->title;
+            }
+        );
+
+        return $this->renderAjax('_compose_template_modal', [
+            'accountId'   => $account_id,
+            'accountType' => $account_type,
+            'templates'   => $templates,
+        ]);
+    }
+
+    /**
+     * Send a template via the active email account.
+     * - Each To recipient gets a separate email (one SMTP call per recipient).
+     * - If recipient email matches a system user — macros are replaced and
+     *   a UserSentTemplate log record is created.
+     * - If no system user found — template body/subject sent as-is, no log.
+     * - CC/BCC recipients are included in every email sent to each To recipient.
+     */
+    public function actionSendTemplate()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $accountId  = Yii::$app->request->post('account_id');
+        $accountType = Yii::$app->request->post('account_type');
+        $templateId = Yii::$app->request->post('template_id');
+        $to         = trim(Yii::$app->request->post('to', ''));
+        $cc         = trim(Yii::$app->request->post('cc', ''));
+        $bcc        = trim(Yii::$app->request->post('bcc', ''));
+
+        if (!$accountId || !$accountType || !$templateId || !$to) {
+            return ['success' => false, 'message' => 'Missing required fields'];
+        }
+
+        if (!$this->canAccessAccount($accountId, $accountType)) {
+            return ['success' => false, 'message' => 'Access denied'];
+        }
+
+        $template = Template::findOne($templateId);
+        if (!$template) {
+            return ['success' => false, 'message' => 'Template not found'];
+        }
+
+        $account = $this->findAccountModel($accountId, $accountType);
+
+        // Build disk-based attachments from template documents
+        $fileAttachments = [];
+        foreach ($template->documents as $doc) {
+            $path = $doc->getFilePath();
+            Yii::error('Template doc path: ' . $path . ' exists: ' . (file_exists($path) ? 'yes' : 'no'), 'email');
+            if ($path && file_exists($path)) {
+                $fileAttachments[] = [
+                    'path' => $path,
+                    'name' => $doc->getFileName(),
+                    'mime' => mime_content_type($path) ?: 'application/octet-stream',
+                ];
+            }
+        }
+
+        $recipients  = $this->parseRecipientsPublic($to);
+        $smtpService = new SmtpService();
+        $errors      = [];
+
+        foreach ($recipients as $recipientEmail) {
+            // Try to find a system user by email to apply macros and log
+            $systemUser = User::findOne(['email' => $recipientEmail]);
+
+            if ($systemUser) {
+                $replaced = $template->replaceMacros($systemUser->id);
+                $subject  = $replaced['subject'];
+                $body     = $replaced['body'];
+            } else {
+                $subject = $template->subject ?: '(No Subject)';
+                $body    = $template->body;
+            }
+
+            try {
+                $smtpService->sendWithFileAttachments(
+                    $account,
+                    $accountType,
+                    $recipientEmail,
+                    $subject,
+                    $body,
+                    $cc ?: null,
+                    $bcc ?: null,
+                    $fileAttachments
+                );
+
+                // Log only for known system users
+                if ($systemUser) {
+                    $record          = UserSentTemplate::createFromTemplate(
+                        $template,
+                        $systemUser->id,
+                        Yii::$app->user->id
+                    );
+                    $record->subject = $subject;
+                    $record->body    = $body;
+                    $record->save();
+                }
+
+            } catch (\Exception $e) {
+                Yii::error('Failed to send template to ' . $recipientEmail . ': ' . $e->getMessage(), 'email');
+                $errors[] = $recipientEmail;
+            }
+        }
+
+        if (empty($errors)) {
+            return ['success' => true, 'message' => 'Template sent successfully'];
+        }
+
+        if (count($errors) === count($recipients)) {
+            return ['success' => false, 'message' => 'Failed to send to all recipients'];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Sent with errors. Failed recipients: ' . implode(', ', $errors),
+        ];
+    }
+
+    /**
+     * Parse comma/semicolon separated email string into array of addresses.
+     */
+    private function parseRecipientsPublic(string $value): array
+    {
+        $list   = preg_split('/[,;]+/', $value);
+        $result = [];
+        foreach ($list as $item) {
+            $item = trim($item);
+            if ($item !== '') {
+                $result[] = $item;
+            }
+        }
+        return $result;
     }
 }

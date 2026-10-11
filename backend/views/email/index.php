@@ -85,6 +85,8 @@ $markFlaggedUrl = Url::to(['mark-flagged']);
 $markUnflaggedUrl = Url::to(['mark-unflagged']);
 $archiveUrl = Url::to(['archive']);
 $deleteUrl = Url::to(['delete']);
+$composeTemplateUrl = Url::to(['compose-template']);
+$sendTemplateUrl    = Url::to(['send-template']);
 
 $accountId = $activeAccount['id'];
 $accountType = $activeAccount['type'];
@@ -377,6 +379,61 @@ $(document).on('click', '.delete-email-btn', function(e) {
     });
 });
 
+// Open send-template modal
+$(document).on('click', '.compose-template-btn', function(e) {
+    e.preventDefault();
+
+    var modal     = $('#composeEmailModal');
+    var modalBody = modal.find('.modal-body');
+    var modalTitle = modal.find('.modal-title');
+
+    modalTitle.text('Send Template');
+    modalBody.html('<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\"><span class=\"sr-only\">Loading...</span></div></div>');
+    modal.modal('show');
+
+    $.ajax({
+        url: '$composeTemplateUrl',
+        type: 'GET',
+        data: { account_id: $accountId, account_type: '$accountType' },
+        success: function(html) {
+            modalBody.html(html);
+        },
+        error: function() {
+            modalBody.html('<div class=\"alert alert-danger\">Failed to load form</div>');
+        }
+    });
+});
+
+// Submit send-template form
+$(document).on('submit', '#compose-template-form', function(e) {
+    e.preventDefault();
+
+    var form   = $(this);
+    var button = form.find('.compose-template-submit-btn');
+
+    button.prop('disabled', true).html('<i class=\"fas fa-spinner fa-spin\"></i> Sending...');
+
+    $.ajax({
+        type: 'POST',
+        url: '$sendTemplateUrl',
+        data: form.serialize(),
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                toastr.success(response.message);
+                $('#composeEmailModal').modal('hide');
+            } else {
+                toastr.error(response.message);
+                button.prop('disabled', false).html('<i class=\"fas fa-paper-plane\"></i> Send Template');
+            }
+        },
+        error: function() {
+            toastr.error('An error occurred');
+            button.prop('disabled', false).html('<i class=\"fas fa-paper-plane\"></i> Send Template');
+        }
+    });
+});
+
 // Close details
 $(document).on('click', '.cancel-action', function(e) {
     e.preventDefault();
@@ -422,6 +479,11 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                             '<i class="fas fa-sync"></i> Sync',
                                             '#',
                                             ['class' => 'btn btn-secondary btn-block sync-account-btn']
+                                        ) ?>
+                                        <?= Html::a(
+                                            '<i class="fas fa-file-alt"></i> Send Template',
+                                            '#',
+                                            ['class' => 'btn btn-success btn-block compose-template-btn']
                                         ) ?>
                                     </div>
 
