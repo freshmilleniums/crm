@@ -11,13 +11,15 @@ use common\models\Project;
  */
 class ProjectsSearch extends Project
 {
+    public $employee_filter;
+    public $employee_id;
     /**
      * {@inheritdoc}
      */
     public function rules()
     {
         return [
-            [['id', 'type', 'status', 'employee_id', 'created_by', 'created_at', 'updated_at'], 'integer'],
+            [['id', 'type', 'status', 'created_by', 'created_at', 'updated_at','employee_filter'], 'integer'],
             [['name', 'comment'], 'safe'],
             [['net_worth', 'roi'], 'number'],
         ];
@@ -33,6 +35,11 @@ class ProjectsSearch extends Project
     public function search($params)
     {
         $query = Project::find();
+
+        if ($this->employee_id) {
+            $query->innerJoin('project_employee pe_personal', 'pe_personal.project_id = projects.id')
+                ->andWhere(['pe_personal.employee_id' => $this->employee_id]);
+        }
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -54,10 +61,9 @@ class ProjectsSearch extends Project
 
         // Grid filtering conditions
         $query->andFilterWhere([
-            'id' => $this->id,
+            'projects.id' => $this->id,
             'type' => $this->type,
             'status' => $this->status,
-            'employee_id' => $this->employee_id,
             'created_by' => $this->created_by,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
@@ -67,6 +73,11 @@ class ProjectsSearch extends Project
 
         $query->andFilterWhere(['like', 'name', $this->name])
             ->andFilterWhere(['like', 'comment', $this->comment]);
+
+        if ($this->employee_filter) {
+            $query->innerJoin('project_employee pe_filter', 'pe_filter.project_id = projects.id')
+                ->andWhere(['pe_filter.employee_id' => $this->employee_filter]);
+        }
 
         return $dataProvider;
     }

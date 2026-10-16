@@ -48,6 +48,8 @@ class EmailController extends Controller
                     'sync' => ['post'],
                     'sync-all' => ['post'],
                     'send-template' => ['post'],
+                    'get-template'  => ['get'],
+                    'quick-reply' => ['post'],
                 ],
             ],
         ];
@@ -181,8 +183,120 @@ class EmailController extends Controller
             'html' => $this->renderPartial('_message_view', [
                 'message' => $message,
                 'messageType' => $type,
+                'templatesList' => $this->getTemplatesList(),
             ]),
         ];
+    }
+
+    /**
+     * Reply to the incoming message with a template without opening the compose form.
+     * - Recipient is the sender of the original message.
+     * - Macros are replaced only in template text, quoted original message stays untouched.
+     * - If recipient is a system user, a UserSentTemplate log record is created.
+     */
+    public function actionQuickReply()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $id = Yii::$app->request->post('id');
+        $type = Yii::$app->request->post('type');
+        $templateId = Yii::$app->request->post('template_id');
+
+        if (!$id || !$type || !$templateId) {
+            return ['success' => false, 'message' => 'Missing required parameters: id, type, template_id'];
+        }
+
+        if ($type == 'corporate') {
+            $message = CorporateEmailMessage::findOne($id);
+            if (!$message || !$this->canAccessAccount($message->corporate_email_id, 'corporate')) {
+                return ['success' => false, 'message' => 'Access denied'];
+            }
+            $account = UserCorporateEmail::findOne($message->corporate_email_id);
+        } else {
+            $message = ExternalEmailMessage::findOne($id);
+            if (!$message || !$this->canAccessAccount($message->email_account_id, 'external')) {
+                return ['success' => false, 'message' => 'Access denied'];
+            }
+            $account = EmailAccount::findOne($message->email_account_id);
+        }
+
+        if (!$account) {
+            return ['success' => false, 'message' => 'Email account not found'];
+        }
+
+        $template = Template::findOne($templateId);
+        if (!$template) {
+            return ['success' => false, 'message' => 'Template not found'];
+        }
+
+        // Build disk-based attachments from template documents
+        $fileAttachments = [];
+        foreach ($template->documents as $doc) {
+            $path = $doc->getFilePath();
+            if ($path && file_exists($path)) {
+                $fileAttachments[] = [
+                    'path' => $path,
+                    'name' => $doc->getFileName(),
+                    'mime' => mime_content_type($path) ?: 'application/octet-stream',
+                ];
+            }
+        }
+
+        $systemUser = $this->findUserByRecipient($message->from_email);
+
+        // Template subject if set, otherwise "Re: ..."
+        $subject = $template->subject
+            ? Template::applyMacros($template->subject, $systemUser)
+            : 'Re: ' . $message->subject;
+        $body = Template::applyMacros($template->body, $systemUser) . $this->buildReplyQuote($message);
+
+        try {
+            $smtpService = new SmtpService();
+            $smtpService->sendWithFileAttachments(
+                $account,
+                $type,
+                $message->from_email,
+                $subject,
+                $body,
+                null,
+                null,
+                $fileAttachments
+            );
+
+            // Log only for known system users
+            if ($systemUser) {
+                $record          = UserSentTemplate::createFromTemplate(
+                    $template,
+                    $systemUser->id,
+                    Yii::$app->user->id
+                );
+                $record->subject = $subject;
+                $record->body    = $body;
+                $record->save();
+            }
+        } catch (\Exception $e) {
+            Yii::error('Quick reply failed: ' . $e->getMessage(), 'email');
+            return ['success' => false, 'message' => 'Failed to send email: ' . $e->getMessage()];
+        }
+
+        return ['success' => true, 'message' => 'Reply sent successfully.'];
+    }
+
+    /**
+     * Build quoted original message block (same markup as in the reply compose form).
+     */
+    private function buildReplyQuote($message)
+    {
+        $originalBody = $message->body_html
+            ?: '<pre style="font-family:inherit;">' . \yii\helpers\Html::encode($message->body_text) . '</pre>';
+
+        return '<p></p><p></p>'
+            . '<blockquote style="margin:10px 0 10px 10px;padding:10px 15px;border-left:3px solid #ccc;color:#555;">'
+            . '<p style="margin:0 0 8px 0;"><strong>On ' . Yii::$app->formatter->asDatetime($message->received_at) . '</strong> '
+            . \yii\helpers\Html::encode($message->from_name ?: $message->from_email)
+            . ' &lt;' . \yii\helpers\Html::encode($message->from_email) . '&gt; wrote:</p>'
+            . '<div>' . $originalBody . '</div>'
+            . '</blockquote>';
     }
 
     public function actionCompose($account_id, $account_type)
@@ -218,6 +332,7 @@ class EmailController extends Controller
         $cc = Yii::$app->request->post('cc');
         $bcc = Yii::$app->request->post('bcc');
         $isModal     = Yii::$app->request->post('is_modal') === '1';
+        $templateId  = Yii::$app->request->post('template_id');
         $attachments = UploadedFile::getInstancesByName('attachments');
 
         if (!$this->canAccessAccount($accountId, $accountType)) {
@@ -230,8 +345,94 @@ class EmailController extends Controller
         $account = $this->findAccountModel($accountId, $accountType);
 
         try {
+
             $smtpService = new SmtpService();
-            $smtpService->send($account, $accountType, $to, $subject, $body, $cc, $bcc, $attachments);
+            $fileAttachments = [];
+            $template = null;
+
+            // If a template was selected — attach its documents as disk-based files
+            if ($templateId) {
+                $template = Template::findOne($templateId);
+                if ($template) {
+                    foreach ($template->documents as $doc) {
+                        $path = $doc->getFilePath();
+                        if ($path && file_exists($path)) {
+                            $fileAttachments[] = [
+                                'path' => $path,
+                                'name' => $doc->getFileName(),
+                                'mime' => mime_content_type($path) ?: 'application/octet-stream',
+                            ];
+                        }
+                    }
+                }
+            }
+
+            if ($template) {
+                // Template selected: separate email per recipient, macros are replaced per recipient
+                $recipients = $this->parseRecipientsPublic((string)$to);
+                $quotedBody = (string)Yii::$app->request->post('quoted_body', '');
+                $errors     = [];
+
+                foreach ($recipients as $recipientEmail) {
+                    $systemUser = $this->findUserByRecipient($recipientEmail);
+
+                    // Macros are applied only to template text, quoted original message stays untouched
+                    $personalSubject = $template->subject
+                        ? Template::applyMacros($template->subject, $systemUser)
+                        : $subject;
+                    $personalBody    = Template::applyMacros($template->body, $systemUser) . $quotedBody;
+
+                    try {
+                        $smtpService->sendWithFileAttachments(
+                            $account,
+                            $accountType,
+                            $recipientEmail,
+                            $personalSubject,
+                            $personalBody,
+                            $cc ?: null,
+                            $bcc ?: null,
+                            $fileAttachments,
+                            $attachments
+                        );
+
+                        // Log only for known system users
+                        if ($systemUser) {
+                            $record          = UserSentTemplate::createFromTemplate(
+                                $template,
+                                $systemUser->id,
+                                Yii::$app->user->id
+                            );
+                            $record->subject = $personalSubject;
+                            $record->body    = $personalBody;
+                            $record->save();
+                        }
+
+                    } catch (\Exception $e) {
+                        Yii::error('Failed to send to ' . $recipientEmail . ': ' . $e->getMessage(), 'email');
+                        $errors[] = $recipientEmail;
+                    }
+                }
+
+                if (!empty($errors)) {
+                    throw new \Exception(
+                        count($errors) === count($recipients)
+                            ? 'Failed to send to all recipients'
+                            : 'Sent with errors. Failed recipients: ' . implode(', ', $errors)
+                    );
+                }
+            } else {
+                $smtpService->sendWithFileAttachments(
+                    $account,
+                    $accountType,
+                    $to,
+                    $subject,
+                    $body,
+                    $cc ?: null,
+                    $bcc ?: null,
+                    $fileAttachments,
+                    $attachments
+                );
+            }
 
             if ($isModal) {
                 return json_encode(['success' => true, 'message' => 'Email sent successfully.']);
@@ -274,6 +475,7 @@ class EmailController extends Controller
                 'accountType' => $type,
                 'replyTo' => $message,
                 'isModal'     => true,
+                'templatesList'   => $this->getTemplatesList(),
             ]);
         }
 
@@ -282,6 +484,7 @@ class EmailController extends Controller
             'accountType' => $type,
             'replyTo' => $message,
             'isModal' => false,
+            'templatesList' => $this->getTemplatesList(),
         ]);
     }
 
@@ -305,8 +508,9 @@ class EmailController extends Controller
             return $this->renderAjax('_compose_form_modal', [
                 'account' => $account,
                 'accountType' => $type,
-                'replyTo' => $message,
+                'forwardMessage'  => $message,
                 'isModal'     => true,
+                'templatesList'   => $this->getTemplatesList(),
             ]);
         }
 
@@ -315,6 +519,7 @@ class EmailController extends Controller
             'accountType' => $type,
             'forwardMessage' => $message,
             'isModal' => false,
+            'templatesList' => $this->getTemplatesList(),
         ]);
     }
 
@@ -883,7 +1088,7 @@ class EmailController extends Controller
      * - Each To recipient gets a separate email (one SMTP call per recipient).
      * - If recipient email matches a system user — macros are replaced and
      *   a UserSentTemplate log record is created.
-     * - If no system user found — template body/subject sent as-is, no log.
+     * - If no system user found — macros are removed, no log.
      * - CC/BCC recipients are included in every email sent to each To recipient.
      */
     public function actionSendTemplate()
@@ -916,7 +1121,6 @@ class EmailController extends Controller
         $fileAttachments = [];
         foreach ($template->documents as $doc) {
             $path = $doc->getFilePath();
-            Yii::error('Template doc path: ' . $path . ' exists: ' . (file_exists($path) ? 'yes' : 'no'), 'email');
             if ($path && file_exists($path)) {
                 $fileAttachments[] = [
                     'path' => $path,
@@ -932,16 +1136,12 @@ class EmailController extends Controller
 
         foreach ($recipients as $recipientEmail) {
             // Try to find a system user by email to apply macros and log
-            $systemUser = User::findOne(['email' => $recipientEmail]);
+            $systemUser = $this->findUserByRecipient($recipientEmail);
 
-            if ($systemUser) {
-                $replaced = $template->replaceMacros($systemUser->id);
-                $subject  = $replaced['subject'];
-                $body     = $replaced['body'];
-            } else {
-                $subject = $template->subject ?: '(No Subject)';
-                $body    = $template->body;
-            }
+            // Unknown recipient - macros are removed
+            $replaced = $template->replaceMacros($systemUser ? $systemUser->id : null);
+            $subject  = $replaced['subject'] ?: '(No Subject)';
+            $body     = $replaced['body'];
 
             try {
                 $smtpService->sendWithFileAttachments(
@@ -1001,5 +1201,79 @@ class EmailController extends Controller
             }
         }
         return $result;
+    }
+
+    /**
+     * Find system user by recipient string ("email" or "Name <email>").
+     */
+    private function findUserByRecipient($recipient)
+    {
+        $recipient = trim((string)$recipient);
+
+        if (preg_match('/<([^>]+)>/', $recipient, $matches)) {
+            $recipient = trim($matches[1]);
+        }
+
+        return $recipient !== '' ? User::findOne(['email' => $recipient]) : null;
+    }
+
+    /**
+     * Get templates list for compose form selectors.
+     */
+    private function getTemplatesList(): array
+    {
+        return \yii\helpers\ArrayHelper::map(
+            Template::find()->orderBy(['title' => SORT_ASC])->all(),
+            'id',
+            function ($t) {
+                return '[' . $t->getCategoryName() . '] ' . $t->title;
+            }
+        );
+    }
+
+    /**
+     * Return template subject, body (with macros replaced if recipient is a system user)
+     * and attachment names for use in the compose form.
+     * Called via AJAX when a template is selected in the compose/reply form.
+     */
+    public function actionGetTemplate()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $templateId     = Yii::$app->request->get('template_id');
+        $recipientEmail = trim(Yii::$app->request->get('recipient_email', ''));
+
+        if (!$templateId) {
+            return ['success' => false, 'message' => 'Missing template_id'];
+        }
+
+        $template = Template::findOne($templateId);
+        if (!$template) {
+            return ['success' => false, 'message' => 'Template not found'];
+        }
+
+        // Apply macros if recipient is a known system user, otherwise remove them
+        $recipients = $this->parseRecipientsPublic($recipientEmail);
+        $systemUser = $recipients ? $this->findUserByRecipient($recipients[0]) : null;
+
+        $replaced = $template->replaceMacros($systemUser ? $systemUser->id : null);
+        $subject  = $replaced['subject'] ?: '';
+        $body     = $replaced['body'];
+
+        // Collect attachment names to display in the form
+        $attachments = [];
+        foreach ($template->documents as $doc) {
+            $attachments[] = $doc->getFileName();
+        }
+
+        return [
+            'success'     => true,
+            'subject'     => $subject,
+            'body'        => $body,
+            // Raw template text (macros are not replaced), used on send
+            'raw_subject' => (string)$template->subject,
+            'raw_body'    => (string)$template->body,
+            'attachments' => $attachments,
+        ];
     }
 }

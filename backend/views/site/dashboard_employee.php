@@ -283,12 +283,15 @@ $isActiveEmployee = $user->substatus === User::SUBSTATUS_ACTIVE_EMPLOYEE;
                 <div class="col-lg-6 col-12 mb-4">
                     <div class="stats-table">
                         <div class="table-header">
-                            <i class="fas fa-project-diagram"></i> My Project
+                            <i class="fas fa-project-diagram"></i> My Projects
+                            <?php if (!empty($investorProject['projects'])): ?>
+                                <span class="badge badge-light ml-2"><?= count($investorProject['projects']) ?></span>
+                            <?php endif; ?>
                         </div>
                         <div class="card-body">
-                            <?php if ($investorProject['project']): ?>
-                                <?php $project = $investorProject['project']; ?>
-                                <div class="project-card">
+                            <?php if (!empty($investorProject['projects'])): ?>
+                            <?php foreach ($investorProject['projects'] as $project): ?>
+                                <div class="project-card mb-3">
                                     <div class="project-name mb-2">
                                         <?= Html::encode($project->name) ?>
                                     </div>
@@ -320,6 +323,7 @@ $isActiveEmployee = $user->substatus === User::SUBSTATUS_ACTIVE_EMPLOYEE;
                                         </div>
                                     <?php endif; ?>
                                 </div>
+                                <?php endforeach; ?>
                             <?php else: ?>
                                 <p class="text-muted mb-0">No project assigned yet.</p>
                             <?php endif; ?>

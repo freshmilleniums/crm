@@ -13,6 +13,7 @@ use backend\widgets\tinymce\TinyMceWidget;
 
 $isReply = isset($replyTo);
 $isForward = isset($forwardMessage);
+$showTemplateSelector = ($isReply || $isForward) && !empty($templatesList ?? []);
 
 if ($isReply) {
     $toEmail = $replyTo->from_email;
@@ -55,6 +56,31 @@ if ($isReply) {
         <?= Html::hiddenInput('account_id', $account->id) ?>
         <?= Html::hiddenInput('account_type', $accountType) ?>
         <?= Html::hiddenInput('is_modal', ($isModal ?? false) ? '1' : '0') ?>
+        <?= Html::hiddenInput('template_id', '', ['id' => 'compose-template-id']) ?>
+        <?= Html::hiddenInput('quoted_body', '', ['id' => 'compose-quoted-body']) ?>
+
+        <?php if ($showTemplateSelector): ?>
+            <div class="form-group">
+                <label for="compose-template-select">Use Template <small class="text-muted">(optional)</small></label>
+                <?= \kartik\select2\Select2::widget([
+                    'name'          => '_template_picker',
+                    'data'          => $templatesList,
+                    'options'       => [
+                        'id'          => 'compose-template-select',
+                        'placeholder' => 'Select template to prefill subject and body...',
+                    ],
+                    'pluginOptions' => [
+                        'allowClear' => true,
+                    ],
+                ]) ?>
+                <div id="template-attachments-info" class="mt-1" style="display:none;">
+                    <small class="text-primary">
+                        <i class="fas fa-paperclip"></i>
+                        <span id="template-attachments-list"></span>
+                    </small>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <div class="form-group">
             <label>From</label>
@@ -103,6 +129,7 @@ if ($isReply) {
 
         <div class="form-group">
             <label for="body">Message <span class="text-danger">*</span></label>
+            <div id="compose-body-wrap">
             <?= TinyMceWidget::widget([
                 'name' => 'body',
                 'value' => $body,
@@ -119,6 +146,8 @@ if ($isReply) {
                     'content_style' => 'body { font-family: Arial, sans-serif; font-size: 14px; }',
                 ]
             ]) ?>
+            </div>
+            <div id="template-preview" class="border rounded p-3 bg-light" style="display:none; max-height:400px; overflow:auto;"></div>
         </div>
 
         <div class="form-group">
@@ -142,21 +171,83 @@ if ($isReply) {
     </div>
 
 <?php
+$getTemplateUrl = \yii\helpers\Url::to(['/email/get-template']);
+$originalBodyJson = json_encode($body, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+
 $js = <<<JS
-$(document).on('submit', '#compose-email-form', function(e) {
+var getTemplateUrl = '$getTemplateUrl';
+var composeOriginalBody = $originalBodyJson;
+var composeOriginalSubject = $('#subject').val();
+
+function resetTemplate() {
+    $('#compose-template-id').val('');
+    $('#compose-quoted-body').val('');
+    $('#subject').val(composeOriginalSubject).prop('readonly', false).css('background-color', '');
+    $('#template-preview').hide().empty();
+    $('#compose-body-wrap').show();
+    $('#template-attachments-info').hide();
+}
+
+function loadTemplate() {
+    var templateId = $('#compose-template-select').val();
+    var recipientEmail = $('#to').val().split(',')[0].trim();
+
+    if (!templateId) {
+        resetTemplate();
+        return;
+    }
+
+    $.ajax({
+        url: getTemplateUrl,
+        type: 'GET',
+        data: { template_id: templateId, recipient_email: recipientEmail },
+        dataType: 'json',
+        success: function(response) {
+            if (!response.success) {
+                toastr.error(response.message || 'Failed to load template');
+                return;
+            }
+
+            $('#compose-template-id').val(templateId);
+
+            // Quoted original message is sent separately, server appends it without touching macros
+            $('#compose-quoted-body').val(composeOriginalBody);
+
+            // Template subject if set, otherwise keep original ("Re: ...", "Fwd: ...")
+            $('#subject').val(response.subject || composeOriginalSubject)
+                .prop('readonly', true).css('background-color', '#f8f9fa');
+
+            // Editor is hidden, preview shows template text + quoted original message
+            $('#compose-body-wrap').hide();
+            $('#template-preview').html(response.body + composeOriginalBody).show();
+
+            if (response.attachments && response.attachments.length > 0) {
+                $('#template-attachments-list').text('Template attachments: ' + response.attachments.join(', '));
+                $('#template-attachments-info').show();
+            } else {
+                $('#template-attachments-info').hide();
+            }
+        },
+        error: function() {
+            toastr.error('Failed to load template');
+        }
+    });
+}
+
+$(document).off('submit', '#compose-email-form').on('submit', '#compose-email-form', function(e) {
     e.preventDefault();
-    
+
     var form = $(this);
     var button = form.find('.send-email-btn');
-    
+
     if (typeof tinymce !== 'undefined') {
         tinymce.triggerSave();
     }
-    
+
     var formData = new FormData(form[0]);
-    
+
     button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Sending...');
-    
+
     $.ajax({
         type: 'POST',
         url: form.prop('action'),
@@ -179,6 +270,15 @@ $(document).on('submit', '#compose-email-form', function(e) {
             button.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Send Email');
         }
     });
+});
+
+$(document).off('change', '#compose-template-select').on('change', '#compose-template-select', loadTemplate);
+
+// Recipient changed after template was selected - refresh preview (macros depend on recipient)
+$(document).off('change', '#to').on('change', '#to', function() {
+    if ($('#compose-template-select').val()) {
+        loadTemplate();
+    }
 });
 
 $('#composeEmailModal').on('hidden.bs.modal', function() {

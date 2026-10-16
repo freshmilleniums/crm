@@ -218,17 +218,8 @@ function convertRowToEditMode(\$row, projectId, options) {
         var selected = (key == statusValue) ? 'selected' : '';
         statusOptions += '<option value=\"' + key + '\" ' + selected + '>' + label + '</option>';
     });
-    \$statusCell.html('<select class=\"form-control form-control-sm\" name=\"status\">' + statusOptions + '</select>');
-    
-    // Employee
-    var \$employeeCell = \$row.find('[data-field=\"employee_id\"]');
-    var employeeValue = \$employeeCell.data('value');
-    var employeeOptions = '<option value=\"\">Select employee...</option>';
-    $.each(options.employees, function(key, label) {
-        var selected = (key == employeeValue) ? 'selected' : '';
-        employeeOptions += '<option value=\"' + key + '\" ' + selected + '>' + label + '</option>';
-    });
-    \$employeeCell.html('<select class=\"form-control form-control-sm\" name=\"employee_id\">' + employeeOptions + '</select>');
+    \$statusCell.html('<select class=\"form-control form-control-sm\" name=\"status\">' + statusOptions + '</select>');  
+
     
     // Replace action buttons
     var \$actionsCell = \$row.find('td:last');
@@ -250,8 +241,7 @@ function saveInlineEdit(event, projectId) {
         type: \$row.find('select[name=\"type\"]').val(),
         net_worth: \$row.find('input[name=\"net_worth\"]').val(),
         roi: \$row.find('input[name=\"roi\"]').val(),
-        status: \$row.find('select[name=\"status\"]').val(),
-        employee_id: \$row.find('select[name=\"employee_id\"]').val(),
+        status: \$row.find('select[name=\"status\"]').val(),        
     };
     
     $.ajax({
@@ -507,13 +497,24 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                 'filter' => Project::getStatusList(),
                             ],
                             [
-                                'attribute' => 'employee_id',
-                                'format' => 'raw',
-                                'value' => function ($model) {
-                                    $employeeName = $model->getEmployeeName() ?? '<span class="text-muted">Not assigned</span>';
-                                    return '<span class="editable-cell" data-field="employee_id" data-id="' . $model->id . '" data-value="' . $model->employee_id . '">' . $employeeName . '</span>';
+                                'attribute' => 'employee_filter',
+                                'label'     => 'Employees',
+                                'format'    => 'raw',
+                                'value'     => function ($model) {
+                                    $names = $model->getEmployeeNames();
+                                    return $names ?: '<span class="text-muted">Not assigned</span>';
                                 },
-                                'filter' => false,
+                                'filter' => \kartik\select2\Select2::widget([
+                                    'model'     => $searchModel,
+                                    'attribute' => 'employee_filter',
+                                    'data'      => $employeesList,
+                                    'options'   => [
+                                        'placeholder' => 'Filter by employee...',
+                                    ],
+                                    'pluginOptions' => [
+                                        'allowClear' => true,
+                                    ],
+                                ]),
                             ],
                             [
                                 'class' => 'yii\grid\ActionColumn',

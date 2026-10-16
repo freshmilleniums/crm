@@ -15,12 +15,11 @@ use yii\behaviors\TimestampBehavior;
  * @property float|null $roi
  * @property string|null $comment
  * @property int|null $status
- * @property int|null $employee_id
  * @property int|null $created_by
  * @property int $created_at
  * @property int $updated_at
  *
- * @property User $employee
+ * @property User[] $employees
  * @property User $creator
  * @property Task[] $tasks
  * @property ProjectsDocuments[] $documents
@@ -62,7 +61,7 @@ class Project extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
-            [['type', 'status', 'employee_id', 'created_by', 'created_at', 'updated_at'], 'integer'],
+            [['type', 'status', 'created_by', 'created_at', 'updated_at'], 'integer'],
             [['net_worth', 'roi'], 'number'],
             [['name'], 'string', 'max' => 255],
             [['comment'], 'string', 'max' => 5000],
@@ -88,7 +87,6 @@ class Project extends \yii\db\ActiveRecord
             'roi' => 'ROI (%)',
             'comment' => 'Comment',
             'status' => 'Status',
-            'employee_id' => 'Assigned Employee',
             'created_by' => 'Created By',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
@@ -172,12 +170,13 @@ class Project extends \yii\db\ActiveRecord
     /**
      * @return string|null
      */
-    public function getEmployeeName()
+    public function getEmployeeNames(): string
     {
-        if ($this->employee_id && $this->employee) {
-            return trim($this->employee->first_name . ' ' . $this->employee->last_name);
+        $names = [];
+        foreach ($this->employees as $employee) {
+            $names[] = trim($employee->first_name . ' ' . $employee->last_name);
         }
-        return null;
+        return implode('<br>', $names);
     }
 
     /**
@@ -194,9 +193,15 @@ class Project extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
-    public function getEmployee()
+    public function getProjectEmployees()
     {
-        return $this->hasOne(User::class, ['id' => 'employee_id']);
+        return $this->hasMany(ProjectEmployee::class, ['project_id' => 'id']);
+    }
+
+    public function getEmployees()
+    {
+        return $this->hasMany(User::class, ['id' => 'employee_id'])
+            ->viaTable('project_employee', ['project_id' => 'id']);
     }
 
     /**
@@ -218,5 +223,23 @@ class Project extends \yii\db\ActiveRecord
     public function getDocuments()
     {
         return $this->hasMany(ProjectsDocuments::class, ['project_id' => 'id']);
+    }
+
+    public static function getProjectsDropdownList(): array
+    {
+        $projects = self::find()
+            ->select(['name', 'id'])
+            ->orderBy(['name' => SORT_ASC])
+            ->asArray()
+            ->all();
+
+        return \yii\helpers\ArrayHelper::map($projects, 'id', 'name');
+    }
+
+    public static function findByEmployee(int $employeeId)
+    {
+        return static::find()
+            ->innerJoin('project_employee pe', 'pe.project_id = projects.id')
+            ->andWhere(['pe.employee_id' => $employeeId]);
     }
 }

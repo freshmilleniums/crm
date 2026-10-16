@@ -164,61 +164,62 @@ class Template extends \yii\db\ActiveRecord
     }
 
     /**
-     * Replace macros with actual user data
-     * @param int $userId
+     * Replace macros with actual user data.
+     * If user is not found, macros are removed.
+     * @param int|null $userId
      * @return array ['subject' => '...', 'body' => '...']
      */
     public function replaceMacros($userId)
     {
-        $user = User::findOne($userId);
-        if (!$user) {
-            return [
-                'subject' => $this->subject,
-                'body' => $this->body,
-            ];
-        }
-
-        $body = $this->body;
-        $subject = $this->subject;
-
-        $replacements = [
-            '{{FullName}}' => trim($user->first_name . ' ' . $user->last_name),
-            '{{FirstName}}' => $user->first_name,
-            '{{LastName}}' => $user->last_name,
-            '{{Email}}' => $user->email,
-            '{{Position}}' => $user->position_title ?? '',
-            '{{PhoneNumber}}' => $user->phone_number ?? '',
-            '{{Address}}' => $user->address ?? '',
-            '{{City}}' => $user->city ?? '',
-            '{{State}}' => $user->state ?? '',
-            '{{ZipCode}}' => $user->zip_code ?? '',
-            '{{Country}}' => $user->country ?? '',
-        ];
-
-        if ($user->current_project_id) {
-            $project = Project::findOne($user->current_project_id);
-            if ($project) {
-                $replacements['{{Project}}'] = $project->name;
-                $replacements['{{ProjectType}}'] = $project->getTypeName();
-            }
-        }
-
-        if ($user->administrator_id) {
-            $admin = User::findOne($user->administrator_id);
-            if ($admin) {
-                $replacements['{{Administrator}}'] = trim($admin->first_name . ' ' . $admin->last_name);
-            }
-        }
-
-        foreach ($replacements as $macro => $value) {
-            $body = str_replace($macro, $value, $body);
-            $subject = str_replace($macro, $value, $subject);
-        }
+        $user = $userId ? User::findOne($userId) : null;
 
         return [
-            'subject' => $subject,
-            'body' => $body,
+            'subject' => self::applyMacros($this->subject, $user),
+            'body' => self::applyMacros($this->body, $user),
         ];
+    }
+
+    /**
+     * Replace macros in arbitrary text.
+     * Without user (or without a value) macros are replaced with empty string.
+     * @param string|null $text
+     * @param User|null $user
+     * @return string
+     */
+    public static function applyMacros($text, $user = null)
+    {
+        $replacements = array_fill_keys(array_keys(self::getAvailableMacros()), '');
+
+        if ($user) {
+            $replacements['{{FullName}}'] = trim($user->first_name . ' ' . $user->last_name);
+            $replacements['{{FirstName}}'] = (string)$user->first_name;
+            $replacements['{{LastName}}'] = (string)$user->last_name;
+            $replacements['{{Email}}'] = (string)$user->email;
+            $replacements['{{Position}}'] = (string)($user->position_title ?? '');
+            $replacements['{{PhoneNumber}}'] = (string)($user->phone_number ?? '');
+            $replacements['{{Address}}'] = (string)($user->address ?? '');
+            $replacements['{{City}}'] = (string)($user->city ?? '');
+            $replacements['{{State}}'] = (string)($user->state ?? '');
+            $replacements['{{ZipCode}}'] = (string)($user->zip_code ?? '');
+            $replacements['{{Country}}'] = (string)($user->country ?? '');
+
+            if ($user->current_project_id) {
+                $project = Project::findOne($user->current_project_id);
+                if ($project) {
+                    $replacements['{{Project}}'] = (string)$project->name;
+                    $replacements['{{ProjectType}}'] = (string)$project->getTypeName();
+                }
+            }
+
+            if ($user->administrator_id) {
+                $admin = User::findOne($user->administrator_id);
+                if ($admin) {
+                    $replacements['{{Administrator}}'] = trim($admin->first_name . ' ' . $admin->last_name);
+                }
+            }
+        }
+
+        return str_replace(array_keys($replacements), array_values($replacements), (string)$text);
     }
 
     /**

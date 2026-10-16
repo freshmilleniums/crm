@@ -190,6 +190,10 @@ class UserService
                 $dataProvider->query->andWhere(['user.company_id' => 0]);
             }
 
+            if ($roleName === 'employee') {
+                $dataProvider->query->with(['currentProjects']);
+            }
+
             $dataProvider->sort->attributes = array_merge($dataProvider->sort->attributes, [
                 'id'           => ['asc' => ['user.id' => SORT_ASC],           'desc' => ['user.id' => SORT_DESC]],
                 'first_name'   => ['asc' => ['user.first_name' => SORT_ASC],   'desc' => ['user.first_name' => SORT_DESC]],

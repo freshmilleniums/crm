@@ -61,13 +61,13 @@ class SmtpService
         string $body,
         ?string $cc = null,
         ?string $bcc = null,
-        array $fileAttachments = []
+        array $fileAttachments = [],
+        $uploadedAttachments = null
     ): string {
         if ($accountType === 'corporate') {
-            return $this->sendCorporate($account, $to, $subject, $body, $cc, $bcc, null, $fileAttachments);
+            return $this->sendCorporate($account, $to, $subject, $body, $cc, $bcc, $uploadedAttachments, $fileAttachments);
         }
-
-        return $this->sendExternal($account, $to, $subject, $body, $cc, $bcc, null, $fileAttachments);
+        return $this->sendExternal($account, $to, $subject, $body, $cc, $bcc, $uploadedAttachments, $fileAttachments);
     }
 
     private function sendCorporate(UserCorporateEmail $account, $to, $subject, $body, $cc, $bcc, $attachments, array $fileAttachments = [])
@@ -312,7 +312,7 @@ class SmtpService
             $filename = uniqid() . '_' . $file->name;
             $filePath = $uploadDir . '/' . $filename;
 
-            if ($file->saveAs($filePath)) {
+            if ($file->saveAs($filePath, false)) {
                 $attachmentModel = $accountType == 'corporate'
                     ? new CorporateEmailAttachment()
                     : new ExternalEmailAttachment();

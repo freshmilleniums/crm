@@ -15,6 +15,7 @@ $addTaskUrl = Url::to(['add-task']);
 $sendTemplateUrl = Url::to(['send-template']);
 $removeEmployerUrl = Url::to(['remove-employer']);
 $quickSearchUrl    = Url::to(['quick-search']);
+$assignProjectUrl     = Url::to(['projects/assign-to-employees']);
 
 $css = "
 .table-danger-soft {
@@ -361,12 +362,17 @@ $(document).on('click', '.employee-checkbox', function(e) {
 
 function updateBulkButton() {
     var bulkAssignButton = $('#bulk-assign-investors-btn');
+    var bulkAssignProjectButton = $('#bulk-assign-project-btn');
     if (selectedEmployeeIds.length > 0) {
         bulkAssignButton.prop('disabled', false);
         bulkAssignButton.text('Assign Investors (' + selectedEmployeeIds.length + ')');
+        bulkAssignProjectButton.prop('disabled', false);
+        bulkAssignProjectButton.text('Assign Project (' + selectedEmployeeIds.length + ')');
     } else {
         bulkAssignButton.prop('disabled', true);
         bulkAssignButton.text('Assign Investors');
+        bulkAssignProjectButton.prop('disabled', true);
+        bulkAssignProjectButton.text('Assign Project');
     }
 }
 
@@ -440,6 +446,80 @@ $(document).on('submit', '#assign-investors-form', function(e) {
         },
         complete: function() {
             submitButton.prop('disabled', false).text('Assign Investors');
+        }
+    });
+});
+
+// Open assign project modal
+$(document).on('click', '#bulk-assign-project-btn', function(e) {
+    e.preventDefault();
+
+    if (selectedEmployeeIds.length === 0) {
+        toastr.warning('Please select at least one employee');
+        return;
+    }
+
+    var modal = $('#usersModal');
+    var modalBody = modal.find('.modal-body');
+    var modalTitle = modal.find('.modal-title');
+
+    modalTitle.text('Assign Project');
+    modalBody.html('<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\"></div></div>');
+    modal.modal('show');
+
+    $.ajax({
+        url: '$assignProjectUrl',
+        type: 'GET',
+        success: function(response) {
+            response = JSON.parse(response);
+            if (typeof response.tpl != 'undefined') {
+                modalBody.html(response.tpl);
+            }
+        },
+        error: function() {
+            modalBody.html('<div class=\"alert alert-danger\">Failed to load form</div>');
+        }
+    });
+});
+
+// Submit assign project form
+$(document).on('submit', '#assign-to-employees-form', function(e) {
+    e.preventDefault();
+
+    var form = $(this);
+    var submitButton = form.find('.assign-to-employees-submit-btn');
+    var formData = form.serialize();
+
+    if (selectedEmployeeIds.length === 0) {
+        toastr.warning('Please select at least one employee');
+        return;
+    }
+
+    submitButton.prop('disabled', true).text('Assigning...');
+
+    $.ajax({
+        type: 'POST',
+        url: '$assignProjectUrl',
+        data: formData + '&' + $.param({ employee_ids: selectedEmployeeIds }),
+        success: function(response) {
+            response = JSON.parse(response);
+            if (typeof response.success != 'undefined') {
+                if (response.success == true) {
+                    toastr.success(response.message);
+                    $('#usersModal').modal('hide');
+                    selectedEmployeeIds = [];
+                    $('.employee-checkbox').prop('checked', false);
+                    $('#bulk-assign-project-btn').prop('disabled', true).text('Assign Project');
+                } else {
+                    toastr.error(response.message);
+                }
+            }
+        },
+        error: function() {
+            toastr.error('An error occurred');
+        },
+        complete: function() {
+            submitButton.prop('disabled', false).text('Assign');
         }
     });
 });
@@ -840,6 +920,13 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                             'disabled' => true,
                                                         ]) ?>
                                                     <?php endif; ?>
+                                                    <?php if ($tab['role'] === 'employee' && Yii::$app->user->can('assignEmployeeToProject')): ?>
+                                                        <?= Html::button('Assign Project', [
+                                                            'id'       => 'bulk-assign-project-btn',
+                                                            'class'    => 'btn btn-primary ml-2',
+                                                            'disabled' => true,
+                                                        ]) ?>
+                                                    <?php endif; ?>
 
                                                     <?php
                                                     $currentUserRoles = array_keys(Yii::$app->authManager->getRolesByUser(Yii::$app->user->id));
@@ -881,7 +968,7 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                         ];
                                                     },
                                                     'visible' => $tab['role'] === 'employee'
-                                                        && Yii::$app->user->can('assignInvestorToEmployee'),
+                                                        && (Yii::$app->user->can('assignInvestorToEmployee') || Yii::$app->user->can('assignEmployeeToProject')),
                                                 ],
                                                 ['class' => 'yii\grid\SerialColumn'],
                                                 'email:email',
@@ -926,6 +1013,23 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                             default:
                                                                 return [];
                                                         }
+                                                    },
+                                                ],
+                                                [
+                                                    'label'   => 'Current Projects',
+                                                    'format'  => 'raw',
+                                                    'visible' => $tab['role'] === 'employee',
+                                                    'value'   => function($model) {
+                                                        if (empty($model->currentProjects)) {
+                                                            return '<span class="text-muted">Not assigned</span>';
+                                                        }
+
+                                                        $projectNames = [];
+                                                        foreach ($model->currentProjects as $project) {
+                                                            $projectNames[] = Html::encode($project->name);
+                                                        }
+
+                                                        return implode('<br>', $projectNames);
                                                     },
                                                 ],
                                                 [

@@ -36,18 +36,16 @@ use backend\widgets\dynamicForm\DynamicFormWidget;
             ]) ?>
         </div>
         <div style="flex: 1;">
-            <?= $form->field($model, 'employee_id')->dropDownList($employees, [
-                'prompt' => 'Select employee...'
-            ]) ?>
+            <?= $form->field($model, 'net_worth')->textInput(['type' => 'number', 'step' => '0.01']) ?>
         </div>
     </div>
 
     <div style="display: flex; gap: 15px;">
         <div style="flex: 1;">
-            <?= $form->field($model, 'net_worth')->textInput(['type' => 'number', 'step' => '0.01']) ?>
+            <?= $form->field($model, 'roi')->textInput(['type' => 'number', 'step' => '0.01']) ?>
         </div>
         <div style="flex: 1;">
-            <?= $form->field($model, 'roi')->textInput(['type' => 'number', 'step' => '0.01']) ?>
+
         </div>
     </div>
 

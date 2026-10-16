@@ -87,6 +87,9 @@ $archiveUrl = Url::to(['archive']);
 $deleteUrl = Url::to(['delete']);
 $composeTemplateUrl = Url::to(['compose-template']);
 $sendTemplateUrl    = Url::to(['send-template']);
+$replyUrl      = Url::to(['reply']);
+$forwardUrl    = Url::to(['forward']);
+$quickReplyUrl = Url::to(['quick-reply']);
 
 $accountId = $activeAccount['id'];
 $accountType = $activeAccount['type'];
@@ -430,6 +433,48 @@ $(document).on('submit', '#compose-template-form', function(e) {
         error: function() {
             toastr.error('An error occurred');
             button.prop('disabled', false).html('<i class=\"fas fa-paper-plane\"></i> Send Template');
+        }
+    });
+});
+
+// Quick reply with template (no compose form)
+$(document).on('click', '.quick-reply-btn', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    var button = $(this);
+    var block = button.closest('.quick-reply-block');
+    var templateId = block.find('.quick-reply-template').val();
+
+    if (!templateId) {
+        toastr.error('Select a template first');
+        return;
+    }
+
+    var originalHtml = button.html();
+    button.html('<i class=\"fas fa-spinner fa-spin\"></i> Sending...').addClass('disabled');
+
+    $.ajax({
+        url: '$quickReplyUrl',
+        type: 'POST',
+        data: {
+            id: block.data('id'),
+            type: block.data('type'),
+            template_id: templateId
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                toastr.success(response.message);
+                location.reload();
+            } else {
+                toastr.error(response.message || 'Failed to send reply');
+                button.html(originalHtml).removeClass('disabled');
+            }
+        },
+        error: function() {
+            toastr.error('Failed to send reply');
+            button.html(originalHtml).removeClass('disabled');
         }
     });
 });

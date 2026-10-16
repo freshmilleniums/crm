@@ -93,7 +93,9 @@ class UsersController extends BaseController
                 ]);
 
                 $projectsProvider = new \yii\data\ActiveDataProvider([
-                    'query'      => \common\models\Project::find()->where(['employee_id' => $model->id]),
+                    'query' => \common\models\Project::find()
+                        ->innerJoin('project_employee pe', 'pe.project_id = projects.id')
+                        ->where(['pe.employee_id' => $model->id]),
                     'pagination' => ['pageSize' => 10, 'pageParam' => 'proj-page'],
                     'sort'       => ['sortParam' => 'proj-sort', 'defaultOrder' => ['created_at' => SORT_DESC]],
                 ]);
@@ -628,11 +630,17 @@ class UsersController extends BaseController
 
         $employee = $this->findModel($id);
         $project = new \common\models\Project();
-        $project->employee_id = $id;
         $project->created_by = Yii::$app->user->id;
 
         if (Yii::$app->request->isPost && $project->load(Yii::$app->request->post())) {
             if ($project->save()) {
+                $projectEmployee = new \common\models\ProjectEmployee();
+                $projectEmployee->project_id  = $project->id;
+                $projectEmployee->employee_id = $id;
+                $projectEmployee->assigned_by = Yii::$app->user->id;
+                $projectEmployee->assigned_at = time();
+                $projectEmployee->save();
+
                 return Json::encode([
                     'success' => true,
                     'message' => 'Project created successfully!',
@@ -822,8 +830,8 @@ class UsersController extends BaseController
             $userRoleKey = key($userRole);
 
             if ($userRoleKey === 'employee') {
-                $projectIds = \common\models\Project::find()
-                    ->select('id')
+                $projectIds = \common\models\ProjectEmployee::find()
+                    ->select('project_id')
                     ->where(['employee_id' => $id])
                     ->column();
 
@@ -849,11 +857,7 @@ class UsersController extends BaseController
                     ]);
                 }
 
-                \common\models\Project::updateAll(
-                    ['employee_id' => null],
-                    ['employee_id' => $id]
-                );
-
+                \common\models\ProjectEmployee::deleteAll(['employee_id' => $id]);
                 \common\models\InvestorEmployee::deleteAll(['employee_id' => $id]);
             }
 
@@ -932,16 +936,22 @@ class UsersController extends BaseController
                         \common\models\Project::STATUS_PLANNING,
                     ]);
 
-                    $isFree = $project->employee_id === null;
+                    if ($isActiveStatus) {
+                        $existingAssignment = \common\models\ProjectEmployee::findOne([
+                            'project_id'  => $projectId,
+                            'employee_id' => $id,
+                        ]);
 
-                    if ($isActiveStatus && $isFree) {
-                        $project->employee_id = $id;
-                        $project->save(false);
+                        if (!$existingAssignment) {
+                            $projectEmployee = new \common\models\ProjectEmployee();
+                            $projectEmployee->project_id  = $projectId;
+                            $projectEmployee->employee_id = $id;
+                            $projectEmployee->assigned_by = Yii::$app->user->id;
+                            $projectEmployee->assigned_at = time();
+                            $projectEmployee->save();
+                        }
                     } else {
-                        $reason = !$isActiveStatus
-                            ? 'closed'
-                            : 'assigned to another employee';
-                        $skippedProjects[] = $project->name . ' (' . $reason . ')';
+                        $skippedProjects[] = $project->name . ' (closed)';
                     }
                 }
 

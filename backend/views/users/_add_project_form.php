@@ -16,7 +16,6 @@ use yii\bootstrap4\ActiveForm;
         'options'=> ['data-pjax' => false],
     ]); ?>
 
-    <?= $form->field($project, 'employee_id')->hiddenInput()->label(false) ?>
 
     <?= $form->field($project, 'name')->textInput(['maxlength' => true]) ?>
 

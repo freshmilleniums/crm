@@ -312,6 +312,17 @@ class User extends ActiveRecord implements IdentityInterface
         return $this->hasOne(UserCorporateEmail::class, ['user_id' => 'id']);
     }
 
+    public function getCurrentProjects()
+    {
+        return $this->hasMany(Project::class, ['id' => 'project_id'])
+            ->viaTable('project_employee', ['employee_id' => 'id'])
+            ->andWhere([
+                'or',
+                ['projects.status' => null],
+                ['not in', 'projects.status', [Project::STATUS_COMPLETED, Project::STATUS_CANCELLED]],
+            ]);
+    }
+
     public function shouldCreateCorporateEmail()
     {
         return in_array($this->role, [

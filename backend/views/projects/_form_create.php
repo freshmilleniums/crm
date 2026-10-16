@@ -30,18 +30,16 @@ use backend\widgets\dynamicForm\DynamicFormWidget;
             ]) ?>
         </div>
         <div class="col-md-6">
-            <?= $form->field($model, 'employee_id')->dropDownList($employees, [
-                'prompt' => 'Select employee...'
-            ]) ?>
+            <?= $form->field($model, 'net_worth')->textInput(['type' => 'number']) ?>
         </div>
     </div>
 
     <div class="row">
         <div class="col-md-6">
-            <?= $form->field($model, 'net_worth')->textInput(['type' => 'number']) ?>
+            <?= $form->field($model, 'roi')->textInput(['type' => 'number', 'step' => '0.01']) ?>
         </div>
         <div class="col-md-6">
-            <?= $form->field($model, 'roi')->textInput(['type' => 'number', 'step' => '0.01']) ?>
+
         </div>
     </div>
 

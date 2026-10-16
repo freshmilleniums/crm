@@ -207,6 +207,10 @@ class UserSearch extends User
                     'asc' => ['user.updated_at' => SORT_ASC],
                     'desc' => ['user.updated_at' => SORT_DESC],
                 ],
+                'last_activity' => [
+                    'asc' => ['user.last_activity' => SORT_ASC],
+                    'desc' => ['user.last_activity' => SORT_DESC],
+                ],
             ],
             'defaultOrder' => [
                 'created_at' => SORT_DESC

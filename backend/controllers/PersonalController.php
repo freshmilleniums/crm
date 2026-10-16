@@ -254,7 +254,11 @@ class PersonalController extends BaseController
     {
         $employeeId = Yii::$app->user->id;
 
-        if (($model = Project::findOne(['id' => $id, 'employee_id' => $employeeId])) !== null) {
+        $model = Project::findByEmployee($employeeId)
+            ->andWhere(['projects.id' => $id])
+            ->one();
+
+        if ($model !== null) {
             return $model;
         }
 

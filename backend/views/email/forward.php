@@ -21,6 +21,7 @@ $this->params['breadcrumbs'][] = $this->title;
                 'account' => $account,
                 'accountType' => $accountType,
                 'forwardMessage' => $forwardMessage,
+                'templatesList'  => $templatesList ?? [],
             ]) ?>
         </div>
     </div>

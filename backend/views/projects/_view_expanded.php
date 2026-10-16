@@ -16,7 +16,7 @@ use yii\helpers\Html;
             </div>
             <div class="col-md-6">
                 <p><strong>Status:</strong> <?= $model->status ? Html::encode($model->getStatusName()) : '<span class="text-muted">Not set</span>' ?></p>
-                <p><strong>Employee:</strong> <?= $model->getEmployeeName() ?? '<span class="text-muted">Not assigned</span>' ?></p>
+                <p><strong>Employees:</strong> <?= $model->getEmployeeNames() ?: '<span class="text-muted">Not assigned</span>' ?></p>
                 <p><strong>Created By:</strong> <?= $model->getCreatorName() ?? '<span class="text-muted">Unknown</span>' ?></p>
                 <p><strong>Created At:</strong> <?= date('m/d/Y H:i', $model->created_at) ?></p>
                 <p><strong>Updated At:</strong> <?= date('m/d/Y H:i', $model->updated_at) ?></p>

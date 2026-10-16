@@ -393,13 +393,17 @@ class EmployersDashboardStatisticsService
             ->limit(5)
             ->all();
 
-        $project = Project::find()
-            ->where(['employee_id' => $employeeId])
-            ->one();
+        $projects = Project::findByEmployee($employeeId)
+            ->andWhere([
+                'or',
+                ['projects.status' => null],
+                ['not in', 'projects.status', [Project::STATUS_COMPLETED, Project::STATUS_CANCELLED]],
+            ])
+            ->all();
 
         return [
             'investors' => $investors,
-            'project' => $project,
+            'projects' => $projects,
         ];
     }
 
@@ -416,7 +420,8 @@ class EmployersDashboardStatisticsService
             ->count();
 
         $unassignedProjects = Project::find()
-            ->where(['employee_id' => null])
+            ->leftJoin('project_employee pe', 'pe.project_id = projects.id')
+            ->where(['pe.project_id' => null])
             ->count();
 
         $totalInvestors = Investor::find()->count();

@@ -44,11 +44,12 @@ class ProjectsController extends BaseController
         $searchModel = new ProjectsSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
-        $dataProvider->query->with(['employee', 'creator']);
+        $dataProvider->query->with(['employees', 'creator']);
 
         return $this->render('index', [
-            'searchModel' => $searchModel,
-            'dataProvider' => $dataProvider,
+            'searchModel'   => $searchModel,
+            'dataProvider'  => $dataProvider,
+            'employeesList' => $this->getEmployeesList(),
         ]);
     }
 
@@ -192,10 +193,6 @@ class ProjectsController extends BaseController
                     \common\models\ActionLog::ENTITY_PROJECT
                 );
 
-                if (empty($employees)) {
-                    $model->employee_id = $model->getOldAttribute('employee_id');
-                }
-
                 $flag = $model->save();
 
                 $deletedDocumentNames = [];
@@ -294,7 +291,6 @@ class ProjectsController extends BaseController
             'options' => [
                 'types' => Project::getTypeList(),
                 'statuses' => Project::getStatusList(),
-                'employees' => $this->getEmployeesList(),
             ]
         ]);
     }
@@ -321,12 +317,6 @@ class ProjectsController extends BaseController
         $model->net_worth = Yii::$app->request->post('net_worth') ?: null;
         $model->roi = Yii::$app->request->post('roi') ?: null;
         $model->status = Yii::$app->request->post('status') ?: null;
-
-        $employees = $this->getEmployeesList();
-
-        if (!empty($employees)) {
-            $model->employee_id = Yii::$app->request->post('employee_id') ?: null;
-        }
 
         $logData = \common\services\ActionLogService::prepareEntityUpdate(
             $model,
@@ -381,37 +371,48 @@ class ProjectsController extends BaseController
         $employees = $this->getEmployeesList();
 
         if (Yii::$app->request->isPost) {
+            $employeeIds = Yii::$app->request->post('employee_ids', []);
 
-            if (!empty($employees)) {
-                $model->employee_id = Yii::$app->request->post('employee_id');
+            $oldEmployeeIds = \common\models\ProjectEmployee::find()
+                ->select('employee_id')
+                ->where(['project_id' => $model->id])
+                ->column();
+
+            \common\models\ProjectEmployee::deleteAll(['project_id' => $model->id]);
+
+            foreach ($employeeIds as $employeeId) {
+                $projectEmployee = new \common\models\ProjectEmployee();
+                $projectEmployee->project_id  = $model->id;
+                $projectEmployee->employee_id = $employeeId;
+                $projectEmployee->assigned_by = Yii::$app->user->id;
+                $projectEmployee->assigned_at = time();
+                $projectEmployee->save();
             }
 
-            $logData = \common\services\ActionLogService::prepareEntityUpdate(
-                $model,
+            \common\services\ActionLogService::log(
                 \common\models\ActionLog::ENTITY_PROJECT,
-                'assign_employee'
+                $model->id,
+                'assign_employee',
+                ['employee_ids' => $oldEmployeeIds],
+                ['employee_ids' => $employeeIds]
             );
 
-
-            if ($model->save(false)) {
-                \common\services\ActionLogService::commitEntityUpdate($logData);
-                return json_encode([
-                    'success' => true,
-                    'message' => 'Employee assigned successfully',
-                ]);
-            } else {
-                return json_encode([
-                    'success' => false,
-                    'message' => 'Failed to assign employee',
-                ]);
-            }
+            return json_encode([
+                'success' => true,
+                'message' => 'Employees assigned successfully',
+            ]);
         }
 
-        // Show form
+        $currentEmployeeIds = \common\models\ProjectEmployee::find()
+            ->select('employee_id')
+            ->where(['project_id' => $model->id])
+            ->column();
+
         return json_encode([
             'tpl' => $this->renderAjax('_assign_employee_form', [
-                'model' => $model,
-                'employees' => $employees,
+                'model'              => $model,
+                'employees'          => $employees,
+                'currentEmployeeIds' => $currentEmployeeIds,
             ])
         ]);
     }
@@ -507,6 +508,73 @@ class ProjectsController extends BaseController
         return json_encode([
             'success' => false,
             'message' => 'Failed to delete document'
+        ]);
+    }
+
+    public function actionAssignToEmployees()
+    {
+        if (!Yii::$app->request->isAjax) {
+            throw new NotFoundHttpException('Invalid request.');
+        }
+
+        if (Yii::$app->request->isPost) {
+            $employeeIds = (array) Yii::$app->request->post('employee_ids', []);
+            $projectIds  = (array) Yii::$app->request->post('project_ids', []);
+
+            if (empty($employeeIds) || empty($projectIds)) {
+                return json_encode([
+                    'success' => false,
+                    'message' => 'Please select employees and projects.',
+                ]);
+            }
+
+            $existing = \common\models\ProjectEmployee::find()
+                ->where(['project_id' => $projectIds, 'employee_id' => $employeeIds])
+                ->select(['project_id', 'employee_id'])
+                ->asArray()
+                ->all();
+
+            $existingPairs = [];
+            foreach ($existing as $row) {
+                $existingPairs[$row['project_id'] . '_' . $row['employee_id']] = true;
+            }
+
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                foreach ($projectIds as $projectId) {
+                    foreach ($employeeIds as $employeeId) {
+                        if (isset($existingPairs[$projectId . '_' . $employeeId])) {
+                            continue;
+                        }
+                        $projectEmployee = new \common\models\ProjectEmployee();
+                        $projectEmployee->project_id  = $projectId;
+                        $projectEmployee->employee_id = $employeeId;
+                        $projectEmployee->assigned_by = Yii::$app->user->id;
+                        $projectEmployee->assigned_at = time();
+                        $projectEmployee->save();
+                    }
+                }
+
+                $transaction->commit();
+
+                return json_encode([
+                    'success' => true,
+                    'message' => 'Projects assigned successfully!',
+                ]);
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                return json_encode([
+                    'success' => false,
+                    'message' => 'Failed to assign projects: ' . $e->getMessage(),
+                ]);
+            }
+        }
+
+        return json_encode([
+            'success' => true,
+            'tpl' => $this->renderAjax('_assign_to_employees_form', [
+                'projectsList' => Project::getProjectsDropdownList(),
+            ])
         ]);
     }
 }

@@ -177,12 +177,31 @@ $ccEmails = is_array($message->getCcEmailsArray()) ? $message->getCcEmailsArray(
                     ['class' => 'btn btn-secondary btn-sm cancel-action']
                 ) ?>
             </div>
+
+            <?php //if ($message->direction == 'incoming' && !empty($templatesList ?? [])): ?>
+                <!-- Quick reply with template -->
+                <hr>
+                <div class="form-inline quick-reply-block" data-id="<?= $message->id ?>" data-type="<?= Html::encode($messageType) ?>">
+                    <label class="mr-2"><strong>Quick reply:</strong></label>
+                    <?= Html::dropDownList('quick_reply_template', null, $templatesList, [
+                        'class' => 'form-control form-control-sm mr-2 quick-reply-template',
+                        'prompt' => 'Select template...',
+                        'style' => 'min-width: 280px;',
+                    ]) ?>
+                    <?= Html::a(
+                        '<i class="fas fa-reply"></i> Reply with template',
+                        '#',
+                        ['class' => 'btn btn-primary btn-sm quick-reply-btn']
+                    ) ?>
+                </div>
+            <?php //endif; ?>
         </div>
     </div>
 
 <?php
 $replyUrl = Url::to(['reply']);
 $forwardUrl = Url::to(['forward']);
+$quickReplyUrl = Url::to(['quick-reply']);
 
 $js = <<<JS
 function showReplyForm(event, messageId, messageType) {
@@ -232,6 +251,52 @@ function showForwardForm(event, messageId, messageType) {
         }
     });
 }
+
+// Quick reply with template (no compose form)
+$(document).off('click', '.quick-reply-btn').on('click', '.quick-reply-btn', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    var button = $(this);
+    var block = button.closest('.quick-reply-block');
+    var templateId = block.find('.quick-reply-template').val();
+
+    if (!templateId) {
+        toastr.error('Select a template first');
+        return;
+    }
+
+    if (!confirm('Send reply with this template to the sender?')) {
+        return;
+    }
+
+    var originalHtml = button.html();
+    button.html('<i class="fas fa-spinner fa-spin"></i> Sending...').addClass('disabled');
+
+    $.ajax({
+        url: '$quickReplyUrl',
+        type: 'POST',
+        data: {
+            id: block.data('id'),
+            type: block.data('type'),
+            template_id: templateId
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                toastr.success(response.message);
+                location.reload();
+            } else {
+                toastr.error(response.message || 'Failed to send reply');
+                button.html(originalHtml).removeClass('disabled');
+            }
+        },
+        error: function() {
+            toastr.error('Failed to send reply');
+            button.html(originalHtml).removeClass('disabled');
+        }
+    });
+});
 JS;
 
 $this->registerJs($js, \yii\web\View::POS_END);
