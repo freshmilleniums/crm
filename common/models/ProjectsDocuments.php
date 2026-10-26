@@ -111,6 +111,21 @@ class ProjectsDocuments extends \yii\db\ActiveRecord
         return in_array(strtolower(pathinfo($this->path, PATHINFO_EXTENSION)), ['doc', 'docx', 'odt']);
     }
 
+    /**
+     * @return string
+     */
+    public function getPreviewType()
+    {
+        if ($this->isImage()) {
+            return 'image';
+        } elseif ($this->isPdf()) {
+            return 'pdf';
+        } elseif ($this->isDocument()) {
+            return 'document';
+        }
+        return 'other';
+    }
+
     public static function deleteFile($path)
     {
         if (empty($path)) return true;

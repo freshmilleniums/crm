@@ -533,7 +533,7 @@ $(document).on('click', '.add-project-btn', function(e) {
     var modalBody = modal.find('.modal-body');
     var modalTitle = modal.find('.modal-title');
 
-    modalTitle.text('Create Project');
+    modalTitle.text('Add Project');
     modalBody.html('<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\"></div></div>');
     modal.modal('show');
 
@@ -591,6 +591,44 @@ $(document).on('submit', '#add-project-form', function(e) {
     });
 });
 
+// Submit assign existing project form
+$(document).on('submit', '#assign-existing-project-form', function(e) {
+    e.preventDefault();
+
+    var form = $(this);
+    var submitButton = form.find('.assign-project-submit-btn');
+
+    if (!form.find('[name=\"project_id\"]').val()) {
+        toastr.warning('Please select a project');
+        return;
+    }
+
+    submitButton.prop('disabled', true).text('Assigning...');
+
+    $.ajax({
+        type: 'POST',
+        url: form.prop('action'),
+        data: form.serialize(),
+        success: function(response) {
+            response = JSON.parse(response);
+            if (typeof response.success != 'undefined') {
+                if (response.success == true) {
+                    toastr.success(response.message);
+                    $('#usersModal').modal('hide');
+                } else {
+                    toastr.error(response.message);
+                }
+            }
+        },
+        error: function() {
+            toastr.error('An error occurred');
+        },
+        complete: function() {
+            submitButton.prop('disabled', false).text('Assign Project');
+        }
+    });
+});
+
 // Open add task modal
 $(document).on('click', '.add-task-btn', function(e) {
     e.preventDefault();
@@ -600,7 +638,7 @@ $(document).on('click', '.add-task-btn', function(e) {
     var modalBody = modal.find('.modal-body');
     var modalTitle = modal.find('.modal-title');
 
-    modalTitle.text('Create Task');
+    modalTitle.text('Add Task');
     modalBody.html('<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\"></div></div>');
     modal.modal('show');
 
@@ -655,7 +693,51 @@ $(document).on('submit', '#add-task-form', function(e) {
             toastr.error('An error occurred');
         },
         complete: function() {
-            submitButton.prop('disabled', false).text('Create Task');
+            submitButton.prop('disabled', false).text('Add Task');         
+        }
+    });
+});
+
+// Submit assign existing task form
+$(document).on('submit', '#assign-existing-task-form', function(e) {
+    e.preventDefault();
+
+    var form = $(this);
+    var submitButton = form.find('.assign-task-submit-btn');
+    var currentAssignee = form.data('current-assignee');
+    var employeeName = form.data('employee-name');
+
+    if (!form.find('[name=\"task_id\"]').val()) {
+        toastr.warning('Please select a task');
+        return;
+    }
+
+    if (currentAssignee && !confirm('This task is currently assigned to ' + currentAssignee + '.\\n\\nIt will be reassigned to ' + employeeName + ' and ' + currentAssignee + ' will be unlinked from it. Continue?')) {
+        return;
+    }
+
+    submitButton.prop('disabled', true).text('Assigning...');
+
+    $.ajax({
+        type: 'POST',
+        url: form.prop('action'),
+        data: form.serialize(),
+        success: function(response) {
+            response = JSON.parse(response);
+            if (typeof response.success != 'undefined') {
+                if (response.success == true) {
+                    toastr.success(response.message);
+                    $('#usersModal').modal('hide');
+                } else {
+                    toastr.error(response.message);
+                }
+            }
+        },
+        error: function() {
+            toastr.error('An error occurred');
+        },
+        complete: function() {
+            submitButton.prop('disabled', false).text('Assign Task');
         }
     });
 });

@@ -71,7 +71,7 @@ class TemplateSendService
         try {
             return Yii::$app->mailer
                 ->compose()
-                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+               // ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setTo($employee->email)
                 ->setSubject($subject)
                 ->setHtmlBody($body)

@@ -37,6 +37,9 @@ class UsersController extends BaseController
                         'delete' => ['POST'],
                         'remove-employer' => ['POST'],
                         'restore-employer'=> ['POST'],
+                        'assign-existing-task' => ['POST'],
+                        'assign-existing-investor' => ['POST'],
+                        'assign-existing-project' => ['POST'],
                     ],
                 ],
             ]
@@ -633,17 +636,44 @@ class UsersController extends BaseController
         $project->created_by = Yii::$app->user->id;
 
         if (Yii::$app->request->isPost && $project->load(Yii::$app->request->post())) {
-            if ($project->save()) {
-                $projectEmployee = new \common\models\ProjectEmployee();
-                $projectEmployee->project_id  = $project->id;
-                $projectEmployee->employee_id = $id;
-                $projectEmployee->assigned_by = Yii::$app->user->id;
-                $projectEmployee->assigned_at = time();
-                $projectEmployee->save();
+            // Creator is controlled by server only
+            $project->created_by = Yii::$app->user->id;
 
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                if ($project->save()) {
+                    $projectEmployee = new \common\models\ProjectEmployee();
+                    $projectEmployee->project_id  = $project->id;
+                    $projectEmployee->employee_id = $id;
+                    $projectEmployee->assigned_by = Yii::$app->user->id;
+                    $projectEmployee->assigned_at = time();
+
+                    if ($projectEmployee->save()) {
+                        $transaction->commit();
+
+                        \common\services\ActionLogService::logEntityCreate($project, \common\models\ActionLog::ENTITY_PROJECT);
+                        \common\services\ActionLogService::log(
+                            \common\models\ActionLog::ENTITY_PROJECT,
+                            $project->id,
+                            'assign_employee',
+                            null,
+                            ['employee_ids' => [(int) $id]]
+                        );
+
+                        return Json::encode([
+                            'success' => true,
+                            'message' => 'Project created successfully!',
+                        ]);
+                    }
+                }
+
+                $transaction->rollBack();
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
                 return Json::encode([
-                    'success' => true,
-                    'message' => 'Project created successfully!',
+                    'success' => false,
+                    'message' => 'Error: ' . $e->getMessage(),
                 ]);
             }
 
@@ -667,7 +697,164 @@ class UsersController extends BaseController
     }
 
     /**
+     * Search projects for Select2 in add project modal.
+     * @return array JSON response
+     */
+    public function actionSearchProjects()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $q = trim(Yii::$app->request->get('q', ''));
+
+        $query = \common\models\Project::find()
+            ->with(['projectEmployees'])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->limit(20);
+
+        if ($q !== '') {
+            $query->andWhere(['like', 'name', $q]);
+        }
+
+        $results = [];
+        foreach ($query->all() as $project) {
+            $results[] = [
+                'id'              => $project->id,
+                'text'            => $project->name,
+                'status_name'     => $project->getStatusName(),
+                'employees_count' => count($project->projectEmployees),
+            ];
+        }
+
+        return ['results' => $results];
+    }
+
+    /**
+     * Get project data for preview in assign existing tab.
+     * @param int $id Project ID
+     * @return array JSON response
+     */
+    public function actionGetProjectData($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $project = \common\models\Project::find()
+            ->andWhere(['id' => (int) $id])
+            ->with(['employees', 'documents'])
+            ->one();
+
+        if (!$project) {
+            return [
+                'success' => false,
+                'message' => 'Project not found.',
+            ];
+        }
+
+        $employees = [];
+        foreach ($project->employees as $projectEmployee) {
+            $employees[] = [
+                'id'   => $projectEmployee->id,
+                'name' => trim($projectEmployee->first_name . ' ' . $projectEmployee->last_name),
+            ];
+        }
+
+        $documents = [];
+        foreach ($project->documents as $document) {
+            $documents[] = [
+                'id'   => $document->id,
+                'name' => $document->getFileName(),
+                'url'  => $document->getUrl(),
+                'type' => $document->getPreviewType(),
+            ];
+        }
+
+        $isClosed = in_array((int) $project->status, [
+            \common\models\Project::STATUS_COMPLETED,
+            \common\models\Project::STATUS_CANCELLED,
+        ], true);
+
+        return [
+            'success' => true,
+            'project' => [
+                'id'          => $project->id,
+                'name'        => $project->name,
+                'type_name'   => $project->type ? $project->getTypeName() : null,
+                'status_name' => $project->status ? $project->getStatusName() : null,
+                'is_closed'   => $isClosed,
+                'net_worth'   => $project->net_worth,
+                'roi'         => $project->roi,
+                'comment'     => $project->comment,
+            ],
+            'employees' => $employees,
+            'documents' => $documents,
+        ];
+    }
+
+    /**
+     * Assign existing project to employee. Other assigned employees are kept.
+     * @param int $id Employee ID
+     * @return string JSON response
+     */
+    public function actionAssignExistingProject($id)
+    {
+        if (!Yii::$app->request->isAjax) {
+            throw new NotFoundHttpException('Invalid request.');
+        }
+
+        $employee  = $this->findModel($id);
+        $projectId = (int) Yii::$app->request->post('project_id');
+        $project   = $projectId
+            ? \common\models\Project::find()->andWhere(['id' => $projectId])->one()
+            : null;
+
+        if (!$project) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'Project not found.',
+            ]);
+        }
+
+        $oldEmployeeIds = \common\models\ProjectEmployee::find()
+            ->select('employee_id')
+            ->where(['project_id' => $project->id])
+            ->column();
+
+        if (in_array((int) $employee->id, array_map('intval', $oldEmployeeIds), true)) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'Project is already assigned to this employee.',
+            ]);
+        }
+
+        $projectEmployee = new \common\models\ProjectEmployee();
+        $projectEmployee->project_id  = $project->id;
+        $projectEmployee->employee_id = $employee->id;
+        $projectEmployee->assigned_by = Yii::$app->user->id;
+        $projectEmployee->assigned_at = time();
+
+        if ($projectEmployee->save()) {
+            \common\services\ActionLogService::log(
+                \common\models\ActionLog::ENTITY_PROJECT,
+                $project->id,
+                'assign_employee',
+                ['employee_ids' => $oldEmployeeIds],
+                ['employee_ids' => array_merge($oldEmployeeIds, [$employee->id])]
+            );
+
+            return Json::encode([
+                'success' => true,
+                'message' => 'Project assigned successfully!',
+            ]);
+        }
+
+        return Json::encode([
+            'success' => false,
+            'message' => 'Failed to assign project: ' . implode(', ', $projectEmployee->getFirstErrors()),
+        ]);
+    }
+
+    /**
      * Create new task with pre-assigned employee.
+     * Supports cloning: fields are prefilled on the client, selected source documents are copied physically.
      */
     public function actionAddTask($id)
     {
@@ -680,11 +867,33 @@ class UsersController extends BaseController
         $task->assigned_to = $id;
         $task->created_by = Yii::$app->user->id;
 
-        $documents = [new \common\models\TasksDocuments()];
+        $documents         = [new \common\models\TasksDocuments()];
+        $sourceTask        = null;
+        $sourceDocumentIds = [];
 
         if (Yii::$app->request->isPost && $task->load(Yii::$app->request->post())) {
+            // Assignee is controlled by server only
+            $task->assigned_to = $id;
+
             $documents = \backend\models\MultipleModel::createMultiple(\common\models\TasksDocuments::class);
             \backend\models\MultipleModel::loadMultiple($documents, Yii::$app->request->post());
+
+            $sourceTaskId      = (int) Yii::$app->request->post('source_task_id');
+            $sourceDocumentIds = array_filter(array_map('intval', (array) Yii::$app->request->post('source_document_ids', [])));
+
+            if ($sourceTaskId) {
+                $sourceTask = $this->findVisibleTask($sourceTaskId);
+                // Training tasks cannot be cloned
+                if ($sourceTask && (int) $sourceTask->is_training === \common\models\Task::IS_TRAINING) {
+                    return Json::encode([
+                        'success' => false,
+                        'message' => 'Training tasks cannot be cloned.',
+                    ]);
+                }
+            }
+
+            // Physical files created during this request, removed on rollback
+            $createdFilePaths = [];
 
             $transaction = Yii::$app->db->beginTransaction();
             try {
@@ -697,6 +906,8 @@ class UsersController extends BaseController
 
                         if ($document->file) {
                             if ($document->upload()) {
+                                $createdFilePaths[] = $document->path;
+
                                 if (!$document->save(false)) {
                                     $flag = false;
                                     break;
@@ -709,8 +920,46 @@ class UsersController extends BaseController
                     }
                 }
 
+                // Copy selected documents from source task (clone mode)
+                if ($flag && $sourceTask && !empty($sourceDocumentIds)) {
+                    $sourceDocuments = \common\models\TasksDocuments::find()
+                        ->where(['id' => $sourceDocumentIds, 'task_id' => $sourceTask->id])
+                        ->all();
+
+                    foreach ($sourceDocuments as $sourceDocument) {
+                        $documentCopy = new \common\models\TasksDocuments();
+                        $documentCopy->task_id = $task->id;
+
+                        if (!$documentCopy->copyFrom($sourceDocument)) {
+                            // Source file is missing on disk - skip it without breaking task creation
+                            Yii::warning('Failed to copy task document #' . $sourceDocument->id, __METHOD__);
+                            continue;
+                        }
+
+                        $createdFilePaths[] = $documentCopy->path;
+
+                        if (!$documentCopy->save(false)) {
+                            $flag = false;
+                            break;
+                        }
+                    }
+                }
+
                 if ($flag) {
                     $transaction->commit();
+
+                    \common\services\ActionLogService::logEntityCreate($task, \common\models\ActionLog::ENTITY_TASK);
+
+                    if ($sourceTask) {
+                        \common\services\ActionLogService::log(
+                            \common\models\ActionLog::ENTITY_TASK,
+                            $task->id,
+                            'clone',
+                            null,
+                            ['source_task_id' => $sourceTask->id]
+                        );
+                    }
+
                     return Json::encode([
                         'success' => true,
                         'message' => 'Task created successfully!',
@@ -718,18 +967,30 @@ class UsersController extends BaseController
                 }
 
                 $transaction->rollBack();
+
+                foreach ($createdFilePaths as $createdFilePath) {
+                    \common\models\TasksDocuments::deleteFile($createdFilePath);
+                }
+
                 return Json::encode([
                     'success' => false,
                     'message' => 'Failed to create task.',
                     'tpl' => $this->renderAjax('_add_task_form', [
-                        'task'      => $task,
-                        'employee'  => $employee,
-                        'documents' => $documents,
+                        'task'              => $task,
+                        'employee'          => $employee,
+                        'documents'         => $documents,
+                        'sourceTask'        => $sourceTask,
+                        'sourceDocumentIds' => $sourceDocumentIds,
                     ])
                 ]);
 
             } catch (\Exception $e) {
                 $transaction->rollBack();
+
+                foreach ($createdFilePaths as $createdFilePath) {
+                    \common\models\TasksDocuments::deleteFile($createdFilePath);
+                }
+
                 return Json::encode([
                     'success' => false,
                     'message' => 'Error: ' . $e->getMessage(),
@@ -740,11 +1001,177 @@ class UsersController extends BaseController
         return Json::encode([
             'success' => true,
             'tpl' => $this->renderAjax('_add_task_form', [
-                'task'      => $task,
-                'employee'  => $employee,
-                'documents' => $documents,
+                'task'              => $task,
+                'employee'          => $employee,
+                'documents'         => $documents,
+                'sourceTask'        => $sourceTask,
+                'sourceDocumentIds' => $sourceDocumentIds,
             ])
         ]);
+    }
+
+    /**
+     * Search tasks for Select2 in add task modal.
+     * Visibility is the same as on tasks index page.
+     * @return array JSON response
+     */
+    public function actionSearchTasks()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $q = trim(Yii::$app->request->get('q', ''));
+
+        $query = \common\models\Task::find()
+            ->with(['assignedUser'])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->limit(20);
+
+        if (!Yii::$app->user->can('super-administrator')) {
+            $query->andWhere(['created_by' => Yii::$app->user->id]);
+        }
+
+        if ($q !== '') {
+            $query->andWhere([
+                'or',
+                ['like', 'title',   $q],
+                ['like', 'subject', $q],
+            ]);
+        }
+
+        $results = [];
+        foreach ($query->all() as $task) {
+            $results[] = [
+                'id'          => $task->id,
+                'text'        => $task->title,
+                'assignee'    => $task->getAssignedUserName(),
+                'created'     => date('Y-m-d', $task->created_at),
+                'is_training' => (int) $task->is_training === \common\models\Task::IS_TRAINING,
+            ];
+        }
+
+        return ['results' => $results];
+    }
+
+    /**
+     * Get task data for prefill (clone) or preview (assign existing).
+     * @param int $id Task ID
+     * @return array JSON response
+     */
+    public function actionGetTaskData($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $task = $this->findVisibleTask($id);
+
+        if (!$task) {
+            return [
+                'success' => false,
+                'message' => 'Task not found.',
+            ];
+        }
+
+        $documents = [];
+        foreach ($task->documents as $document) {
+            $documents[] = [
+                'id'   => $document->id,
+                'name' => $document->getFileName(),
+                'url'  => $document->getUrl(),
+                'type' => $document->getPreviewType(),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'task'    => [
+                'id'            => $task->id,
+                'title'         => $task->title,
+                'subject'       => $task->subject,
+                'description'   => $task->description,
+                'priority'      => $task->priority,
+                'priority_name' => $task->getPriorityName(),
+                'status'        => $task->status,
+                'status_name'   => $task->getStatusName(),
+                'due_date'      => $task->due_date_formatted,
+                'assigned_to'   => $task->assigned_to,
+                'assignee'      => $task->getAssignedUserName(),
+            ],
+            'documents' => $documents,
+        ];
+    }
+
+    /**
+     * Reassign existing task to employee. Previous assignee is unlinked.
+     * @param int $id Employee ID
+     * @return string JSON response
+     */
+    public function actionAssignExistingTask($id)
+    {
+        if (!Yii::$app->request->isAjax) {
+            throw new NotFoundHttpException('Invalid request.');
+        }
+
+        $employee = $this->findModel($id);
+        $task     = $this->findVisibleTask(Yii::$app->request->post('task_id'));
+
+        if (!$task) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'Task not found.',
+            ]);
+        }
+
+        if ((int) $task->assigned_to === (int) $employee->id) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'Task is already assigned to this employee.',
+            ]);
+        }
+
+        $task->assigned_to = $employee->id;
+
+        $status = Yii::$app->request->post('status');
+        if ($status !== null && $status !== '') {
+            $task->status = (int) $status;
+        }
+
+        $logData = \common\services\ActionLogService::prepareEntityUpdate(
+            $task,
+            \common\models\ActionLog::ENTITY_TASK
+        );
+
+        if ($task->save()) {
+            \common\services\ActionLogService::commitEntityUpdate($logData);
+
+            return Json::encode([
+                'success' => true,
+                'message' => 'Task assigned successfully!',
+            ]);
+        }
+
+        return Json::encode([
+            'success' => false,
+            'message' => 'Failed to assign task: ' . implode(', ', $task->getFirstErrors()),
+        ]);
+    }
+
+    /**
+     * Find task visible for current user (same rules as tasks index page).
+     * @param int $id Task ID
+     * @return \common\models\Task|null
+     */
+    protected function findVisibleTask($id)
+    {
+        if (!$id) {
+            return null;
+        }
+
+        $query = \common\models\Task::find()->andWhere(['id' => (int) $id]);
+
+        if (!Yii::$app->user->can('super-administrator')) {
+            $query->andWhere(['created_by' => Yii::$app->user->id]);
+        }
+
+        return $query->one();
     }
 
     /**
@@ -1214,21 +1641,45 @@ class UsersController extends BaseController
         if (Yii::$app->request->isPost && $investor->load(Yii::$app->request->post())) {
             $investor->created_by = Yii::$app->user->id;
 
-            if ($investor->save()) {
-                $investorEmployee = new \common\models\InvestorEmployee();
-                $investorEmployee->investor_id = $investor->id;
-                $investorEmployee->employee_id = $id;
-                $investorEmployee->assigned_by = Yii::$app->user->id;
-                $investorEmployee->assigned_at = time();
-                $investorEmployee->save();
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                if ($investor->save()) {
+                    $investorEmployee = new \common\models\InvestorEmployee();
+                    $investorEmployee->investor_id = $investor->id;
+                    $investorEmployee->employee_id = $id;
+                    $investorEmployee->assigned_by = Yii::$app->user->id;
+                    $investorEmployee->assigned_at = time();
 
-                return \yii\helpers\Json::encode([
-                    'success' => true,
-                    'message' => 'Investor created and assigned successfully!',
+                    if ($investorEmployee->save()) {
+                        $transaction->commit();
+
+                        \common\services\ActionLogService::logEntityCreate($investor, \common\models\ActionLog::ENTITY_INVESTOR);
+                        \common\services\ActionLogService::log(
+                            \common\models\ActionLog::ENTITY_INVESTOR,
+                            $investor->id,
+                            'assign_employee',
+                            null,
+                            ['employee_ids' => [(int) $id]]
+                        );
+
+                        return Json::encode([
+                            'success' => true,
+                            'message' => 'Investor created and assigned successfully!',
+                        ]);
+                    }
+                }
+
+                $transaction->rollBack();
+
+            } catch (\Exception $e) {
+                $transaction->rollBack();
+                return Json::encode([
+                    'success' => false,
+                    'message' => 'Error: ' . $e->getMessage(),
                 ]);
             }
 
-            return \yii\helpers\Json::encode([
+            return Json::encode([
                 'success' => false,
                 'message' => 'Failed to create investor.',
                 'tpl' => $this->renderAjax('_add_investor_form', [
@@ -1238,12 +1689,157 @@ class UsersController extends BaseController
             ]);
         }
 
-        return \yii\helpers\Json::encode([
+        return Json::encode([
             'success' => true,
             'tpl' => $this->renderAjax('_add_investor_form', [
                 'investor' => $investor,
                 'employee' => $employee,
             ])
+        ]);
+    }
+
+    /**
+     * Search investors for Select2 in add investor modal.
+     * @return array JSON response
+     */
+    public function actionSearchInvestors()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $q = trim(Yii::$app->request->get('q', ''));
+
+        $query = \common\models\Investor::find()
+            ->with(['investorEmployees'])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->limit(20);
+
+        if ($q !== '') {
+            $query->andWhere([
+                'or',
+                ['like', 'first_name', $q],
+                ['like', 'last_name',  $q],
+                ['like', 'email',      $q],
+                ['like', "CONCAT(first_name, ' ', last_name)", $q],
+            ]);
+        }
+
+        $results = [];
+        foreach ($query->all() as $investor) {
+            $results[] = [
+                'id'              => $investor->id,
+                'text'            => $investor->getFullName(),
+                'email'           => $investor->email,
+                'employees_count' => count($investor->investorEmployees),
+            ];
+        }
+
+        return ['results' => $results];
+    }
+
+    /**
+     * Get investor data for preview in assign existing tab.
+     * @param int $id Investor ID
+     * @return array JSON response
+     */
+    public function actionGetInvestorData($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $investor = \common\models\Investor::find()
+            ->andWhere(['id' => (int) $id])
+            ->with(['employees'])
+            ->one();
+
+        if (!$investor) {
+            return [
+                'success' => false,
+                'message' => 'Investor not found.',
+            ];
+        }
+
+        $employees = [];
+        foreach ($investor->employees as $investorEmployee) {
+            $employees[] = [
+                'id'   => $investorEmployee->id,
+                'name' => trim($investorEmployee->first_name . ' ' . $investorEmployee->last_name),
+            ];
+        }
+
+        return [
+            'success'  => true,
+            'investor' => [
+                'id'        => $investor->id,
+                'full_name' => $investor->getFullName(),
+                'email'     => $investor->email,
+                'address'   => $investor->address,
+                'type_name' => $investor->investor_type ? $investor->getTypeName() : null,
+                'net_value' => $investor->net_value,
+                'comment'   => $investor->comment,
+            ],
+            'employees' => $employees,
+        ];
+    }
+
+    /**
+     * Assign existing investor to employee. Other assigned employees are kept.
+     * @param int $id Employee ID
+     * @return string JSON response
+     */
+    public function actionAssignExistingInvestor($id)
+    {
+        if (!Yii::$app->request->isAjax) {
+            throw new NotFoundHttpException('Invalid request.');
+        }
+
+        $employee   = $this->findModel($id);
+        $investorId = (int) Yii::$app->request->post('investor_id');
+        $investor   = $investorId
+            ? \common\models\Investor::find()->andWhere(['id' => $investorId])->one()
+            : null;
+
+        if (!$investor) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'Investor not found.',
+            ]);
+        }
+
+        $oldEmployeeIds = \common\models\InvestorEmployee::find()
+            ->select('employee_id')
+            ->where(['investor_id' => $investor->id])
+            ->column();
+
+        if (in_array((int) $employee->id, array_map('intval', $oldEmployeeIds), true)) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'Investor is already assigned to this employee.',
+            ]);
+        }
+
+        $investorEmployee = new \common\models\InvestorEmployee();
+        $investorEmployee->investor_id = $investor->id;
+        $investorEmployee->employee_id = $employee->id;
+        $investorEmployee->assigned_by = Yii::$app->user->id;
+        $investorEmployee->assigned_at = time();
+
+        if ($investorEmployee->save()) {
+            \common\services\ActionLogService::log(
+                \common\models\ActionLog::ENTITY_INVESTOR,
+                $investor->id,
+                'assign_employee',
+                ['employee_ids' => $oldEmployeeIds],
+                ['employee_ids' => array_merge($oldEmployeeIds, [$employee->id])]
+            );
+
+            return Json::encode([
+                'success' => true,
+                'message' => 'Investor assigned successfully!',
+            ]);
+        }
+
+        return Json::encode([
+            'success' => false,
+            'message' => 'Failed to assign investor: ' . implode(', ', $investorEmployee->getFirstErrors()),
         ]);
     }
 

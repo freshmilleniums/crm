@@ -447,7 +447,7 @@ class User extends ActiveRecord implements IdentityInterface
     {
         try {
             Yii::$app->mailer->compose()
-                ->setFrom([Yii::$app->params['supportEmail'] => Yii::$app->name])
+                //->setFrom([Yii::$app->params['supportEmail'] => Yii::$app->name])
                 ->setTo($this->email)
                 ->setSubject('Your Corporate Email Credentials')
                 ->setHtmlBody("

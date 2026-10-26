@@ -320,7 +320,7 @@ var chatModalTitle = chatModal.find('.modal-title');
 \$(document).on('click', '.add-task-btn', function(e) {
     e.preventDefault();
     var employeeId = \$(this).data('id');
-    chatModalTitle.text('Create Task');
+    chatModalTitle.text('Add Task');
     chatModalBody.html('<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\"></div></div>');
     chatModal.modal('show');
     \$.ajax({
@@ -353,10 +353,31 @@ var chatModalTitle = chatModal.find('.modal-title');
     });
 });
 
+\$(document).on('submit', '#assign-existing-task-form', function(e) {
+    e.preventDefault();
+    var form = \$(this);
+    var submitButton = form.find('.assign-task-submit-btn');
+    var currentAssignee = form.data('current-assignee');
+    var employeeName = form.data('employee-name');
+    if (!form.find('[name=\"task_id\"]').val()) { toastr.warning('Please select a task'); return; }
+    if (currentAssignee && !confirm('This task is currently assigned to ' + currentAssignee + '.\\n\\nIt will be reassigned to ' + employeeName + ' and ' + currentAssignee + ' will be unlinked from it. Continue?')) { return; }
+    submitButton.prop('disabled', true).text('Assigning...');
+    \$.ajax({
+        type: 'POST', url: form.prop('action'), data: form.serialize(),
+        success: function(response) {
+            response = JSON.parse(response);
+            if (response.success) { toastr.success(response.message); chatModal.modal('hide'); }
+            else { toastr.error(response.message); }
+        },
+        error: function() { toastr.error('An error occurred'); },
+        complete: function() { submitButton.prop('disabled', false).text('Assign Task'); }
+    });
+});
+
 \$(document).on('click', '.add-investor-btn', function(e) {
     e.preventDefault();
     var employeeId = \$(this).data('id');
-    chatModalTitle.text('Create Investor');
+    chatModalTitle.text('Add Investor');
     chatModalBody.html('<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\"></div></div>');
     chatModal.modal('show');
     \$.ajax({
@@ -366,6 +387,24 @@ var chatModalTitle = chatModal.find('.modal-title');
             if (typeof response.tpl != 'undefined') { chatModalBody.html(response.tpl); }
         },
         error: function() { chatModalBody.html('<div class=\"alert alert-danger\">Failed to load form</div>'); }
+    });
+});
+
+\$(document).on('submit', '#assign-existing-investor-form', function(e) {
+    e.preventDefault();
+    var form = \$(this);
+    var submitButton = form.find('.assign-investor-submit-btn');
+    if (!form.find('[name=\"investor_id\"]').val()) { toastr.warning('Please select an investor'); return; }
+    submitButton.prop('disabled', true).text('Assigning...');
+    \$.ajax({
+        type: 'POST', url: form.prop('action'), data: form.serialize(),
+        success: function(response) {
+            response = JSON.parse(response);
+            if (response.success) { toastr.success(response.message); chatModal.modal('hide'); }
+            else { toastr.error(response.message); }
+        },
+        error: function() { toastr.error('An error occurred'); },
+        complete: function() { submitButton.prop('disabled', false).text('Assign Investor'); }
     });
 });
 
@@ -390,7 +429,7 @@ var chatModalTitle = chatModal.find('.modal-title');
 \$(document).on('click', '.add-project-btn', function(e) {
     e.preventDefault();
     var employeeId = \$(this).data('id');
-    chatModalTitle.text('Create Project');
+    chatModalTitle.text('Add Project');
     chatModalBody.html('<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\"></div></div>');
     chatModal.modal('show');
     \$.ajax({
@@ -418,6 +457,24 @@ var chatModalTitle = chatModal.find('.modal-title');
         },
         error: function() { toastr.error('An error occurred'); },
         complete: function() { submitButton.prop('disabled', false).text('Create Project'); }
+    });
+});
+
+\$(document).on('submit', '#assign-existing-project-form', function(e) {
+    e.preventDefault();
+    var form = \$(this);
+    var submitButton = form.find('.assign-project-submit-btn');
+    if (!form.find('[name=\"project_id\"]').val()) { toastr.warning('Please select a project'); return; }
+    submitButton.prop('disabled', true).text('Assigning...');
+    \$.ajax({
+        type: 'POST', url: form.prop('action'), data: form.serialize(),
+        success: function(response) {
+            response = JSON.parse(response);
+            if (response.success) { toastr.success(response.message); chatModal.modal('hide'); }
+            else { toastr.error(response.message); }
+        },
+        error: function() { toastr.error('An error occurred'); },
+        complete: function() { submitButton.prop('disabled', false).text('Assign Project'); }
     });
 });
 

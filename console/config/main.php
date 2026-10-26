@@ -31,6 +31,11 @@ return [
                 ],
             ],
         ],
+        'mailer' => [
+            'class' => \common\components\CompanyMailer::class,
+            'viewPath' => '@common/mail',
+            'useFileTransport' => false,
+        ],
     ],
     'params' => $params,
 ];

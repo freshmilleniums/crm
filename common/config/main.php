@@ -20,5 +20,10 @@ return [
             'retryCount' => 2,
             'enabled' => true
         ],
+        'mailer' => [
+            'class' => \common\components\CompanyMailer::class,
+            'viewPath' => '@common/mail',
+            'useFileTransport' => false,
+        ],
     ],
 ];

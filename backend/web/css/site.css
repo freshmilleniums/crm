@@ -302,3 +302,91 @@ a.desc:after {
 .cc-scripts-accordion .cc-script-text ol {
     padding-left: 20px;
 }
+
+/* Task / investor / project search dropdowns in add modals: keep secondary line readable on highlighted row */
+.select2-results__option--highlighted .task-search-meta,
+.select2-results__option--highlighted .investor-search-meta,
+.select2-results__option--highlighted .project-search-meta {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Task documents preview tiles (add task modal) */
+.task-document-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.task-document-tile {
+    width: 120px;
+    padding: 6px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.task-document-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: #f8f9fa;
+}
+
+.task-document-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.task-document-preview i {
+    font-size: 36px;
+}
+
+/* Task documents preview tiles (add task modal) */
+.task-document-tiles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.task-document-tile {
+    width: 120px;
+    padding: 6px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.task-document-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    border-radius: 3px;
+    background: #f8f9fa;
+}
+
+.task-document-preview img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.task-document-preview i {
+    font-size: 36px;
+}
+
+.task-document-tile .form-check-label,
+.task-document-tile .task-document-name {
+    display: block;
+    overflow: hidden;
+    font-size: 12px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}

@@ -63,6 +63,11 @@ return [
             'class' => 'yii\rbac\DbManager',
             'cache' => \yii\caching\ArrayCache::class,
         ],
+        'mailer' => [
+            'class' => \common\components\CompanyMailer::class,
+            'viewPath' => '@common/mail',
+            'useFileTransport' => false,
+        ],
     ],
     'as cors' => [
         'class' => 'yii\filters\Cors',

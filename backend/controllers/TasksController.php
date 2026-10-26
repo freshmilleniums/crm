@@ -210,6 +210,7 @@ class TasksController extends BaseController
                 $flag = $model->save();
 
                 $deletedDocumentNames = [];
+                $deletedDocumentPaths = [];
 
                 if ($flag) {
                     // Delete removed documents
@@ -221,6 +222,10 @@ class TasksController extends BaseController
 
                         $deletedDocumentNames = array_map(function($doc) {
                             return $doc->getFileName();
+                        }, $deletedDocuments);
+
+                        $deletedDocumentPaths = array_map(function($doc) {
+                            return $doc->path;
                         }, $deletedDocuments);
 
                         TasksDocuments::deleteAll(['id' => $deletedDocumentIDs]);
@@ -271,6 +276,12 @@ class TasksController extends BaseController
 
                     $transaction->commit();
                     Yii::$app->session->setFlash('success', 'Task updated successfully.');
+
+                    // Remove physical files only after successful commit
+                    foreach ($deletedDocumentPaths as $deletedPath) {
+                        TasksDocuments::deleteFile($deletedPath);
+                    }
+
                     return $this->redirect(['index']);
                 } else {
                     $transaction->rollBack();
@@ -299,10 +310,31 @@ class TasksController extends BaseController
     {
         $model = $this->findModel($id);
 
-        // Log before deletion
-        \common\services\ActionLogService::logEntityDelete($model, \common\models\ActionLog::ENTITY_TASK);
+        // Collect file paths before deletion
+        $documentPaths = array_map(function($doc) {
+            return $doc->path;
+        }, $model->documents);
 
-        $model->delete();
+        $transaction = Yii::$app->db->beginTransaction();
+
+        try {
+            // Log before deletion
+            \common\services\ActionLogService::logEntityDelete($model, \common\models\ActionLog::ENTITY_TASK);
+
+            TasksDocuments::deleteAll(['task_id' => $model->id]);
+            $model->delete();
+
+            $transaction->commit();
+        } catch (\Exception $e) {
+            $transaction->rollBack();
+            throw $e;
+        }
+
+        // Remove physical files only after successful commit
+        foreach ($documentPaths as $documentPath) {
+            TasksDocuments::deleteFile($documentPath);
+        }
+
         Yii::$app->session->setFlash('success', 'Task deleted successfully.');
 
         return $this->redirect(['index']);

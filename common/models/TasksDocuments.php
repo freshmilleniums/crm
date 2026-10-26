@@ -124,6 +124,33 @@ class TasksDocuments extends \yii\db\ActiveRecord
     }
 
     /**
+     * Copy physical file of another document to a new location and set path for this record.
+     * @param TasksDocuments $source
+     * @return bool
+     */
+    public function copyFrom(TasksDocuments $source)
+    {
+        $sourceFilePath = $source->getFilePath();
+
+        if (empty($source->path) || !is_file($sourceFilePath)) {
+            return false;
+        }
+
+        $ext = pathinfo($source->path, PATHINFO_EXTENSION);
+        $fileNewName = md5($source->path . uniqid('', true));
+        $fileDir = 'tasksDocuments/' . $fileNewName[0] . '/' . $fileNewName[1] . $fileNewName[2] . '/';
+        $dirPath = Yii::$app->params['uploadPath'] . $fileDir;
+
+        if (!is_dir($dirPath)) {
+            FileHelper::createDirectory($dirPath);
+        }
+
+        $this->path = $fileDir . time() . '_' . $fileNewName . '.' . $ext;
+
+        return copy($sourceFilePath, $this->getFilePath());
+    }
+
+    /**
      * @return bool
      */
     public function isImage()

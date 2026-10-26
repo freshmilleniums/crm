@@ -195,7 +195,7 @@ class NotificationService
 
             return Yii::$app->mailer
                 ->compose()
-                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                //->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setTo($user->email)
                 ->setSubject($subject)
                 ->setTextBody($body)
