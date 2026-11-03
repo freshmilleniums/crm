@@ -34,7 +34,37 @@ $this->registerJsFile('@web/js/mobile.js', ['depends' => [\yii\web\JqueryAsset::
         <title><?= Html::encode($this->title) ?></title>
         <?php $this->head() ?>
         <style>
-            .main-sidebar {
+            .content-wrapper,
+            .main-footer {
+                margin-left: 0 !important;
+            }
+
+            .navbar-brand .brand-text {
+                color: #fff !important;
+            }
+            .main-header.navbar {
+                padding: 0 !important;
+                margin-left: 0 !important;
+                min-height: 57px;
+            }
+            .navbar-brand {
+                background-color: #343a40;
+                padding: 0 16px !important;
+                margin-right: 8px;
+                align-self: stretch;
+                display: flex;
+                align-items: center;
+            }
+
+            .navbar-badge {
+                font-size: 11px !important;
+                min-width: 19px !important;
+                font-weight: 600 !important;
+                top: 0 !important;
+                right: 0 !important;
+                padding: 3px 6px !important;
+            }
+           /* .main-sidebar {
                 position: fixed !important;
                 top: 0;
                 left: 0;
@@ -43,7 +73,7 @@ $this->registerJsFile('@web/js/mobile.js', ['depends' => [\yii\web\JqueryAsset::
                 transition: none !important;
             }
 
-            /* Desktop collapsed sidebar */
+
             @media (min-width: 992px) {
                 .sidebar-mini.sidebar-collapse .main-sidebar {
                     width: 4.6rem !important;
@@ -83,10 +113,10 @@ $this->registerJsFile('@web/js/mobile.js', ['depends' => [\yii\web\JqueryAsset::
             .main-sidebar.sidebar-ready {
                 visibility: visible;
                 opacity: 1;
-            }
+            }*/
         </style>
     </head>
-    <body class="hold-transition sidebar-mini" >
+    <body class="hold-transition " >
     <?php $this->beginBody() ?>
 
     <div class="wrapper">
@@ -95,7 +125,7 @@ $this->registerJsFile('@web/js/mobile.js', ['depends' => [\yii\web\JqueryAsset::
         <!-- /.navbar -->
 
         <!-- Main Sidebar Container -->
-        <?= $this->render('sidebar', ['assetDir' => $assetDir]) ?>
+        <? //= $this->render('sidebar', ['assetDir' => $assetDir]) ?>
 
         <!-- Content Wrapper. Contains page content -->
         <?= $this->render('content', ['content' => $content, 'assetDir' => $assetDir]) ?>

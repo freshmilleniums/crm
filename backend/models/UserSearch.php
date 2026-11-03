@@ -15,13 +15,15 @@ class UserSearch extends User
     public $created_from;
     public $created_to;
     public $q;
+    public $hide_inactive;
+
     /**
      * {@inheritdoc}
      */
     public function rules()
     {
         return [
-            [['id', 'status', 'substatus', 'sequential_number', 'current_project_id', 'administrator_id', 'total_time_today'], 'integer'],
+            [['id', 'status', 'substatus', 'sequential_number', 'current_project_id', 'administrator_id', 'total_time_today', 'hide_inactive'], 'integer'],
             [[ 'email', 'verification_token', 'first_name', 'last_name',
                 'address', 'phone_number', 'city', 'state', 'zip_code', 'position_title', 'country', 'home_phone', 'hr_source'], 'safe'],
             [['is_online'], 'boolean'],

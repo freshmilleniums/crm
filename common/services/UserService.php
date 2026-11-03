@@ -140,7 +140,7 @@ class UserService
      * Get tabs data for roles (determines available roles automatically)
      * @return array
      */
-    public function getTabsDataForRoles(int $status = User::STATUS_ACTIVE): array
+    public function getTabsDataForRoles(int $status = User::STATUS_ACTIVE, array $options = []): array
     {
         $currentUserId = Yii::$app->user->id;
         $availableRoles = $this->getAvailableRolesForUser($currentUserId);
@@ -154,16 +154,26 @@ class UserService
 
         foreach ($availableRoles as $roleName => $roleDisplayName) {
             $filterModel = new UserSearch();
-            $dataProvider = $this->createDataProviderForRole($roleName, $status, $filterModel);
+            $dataProvider = $this->createDataProviderForRole($roleName, $status, $filterModel, $options);
 
-            $tabs[] = [
+            $tab = [
                 'id' => "tab-$roleName",
                 'role' => $roleName,
                 'label' => $roleDisplayName,
                 'dataProvider' => $dataProvider,
                 'filterModel'  => $filterModel,
                 'active' => $roleName === $firstRole,
+                'comments'     => [],
+                'lastTemplates' => [],
             ];
+            if ($roleName === 'employee') {
+                $models  = $dataProvider->getModels();
+                $userIds = array_column($models, 'id');
+
+                $tab['comments']      = $this->getCommentsForUsers($userIds, Yii::$app->user->id);
+                $tab['lastTemplates'] = $this->getLastTemplatesForUsers($userIds);
+            }
+            $tabs[] = $tab;
         }
 
         return $tabs;
@@ -174,11 +184,20 @@ class UserService
      * @param string $roleName
      * @return ActiveDataProvider
      */
-    private function createDataProviderForRole(string $roleName, int $status = User::STATUS_ACTIVE, UserSearch $filterModel = null): ActiveDataProvider
+    private function createDataProviderForRole(string $roleName, int $status = User::STATUS_ACTIVE, UserSearch $filterModel = null, array $options = []): ActiveDataProvider
     {
         if ($filterModel !== null) {
             $filterModel->load(Yii::$app->request->queryParams);
             $dataProvider = $filterModel->search(Yii::$app->request->queryParams);
+
+            if ($roleName === 'employee' && !empty($options['hide_inactive'])) {
+                $thirtyDaysAgo = time() - 30 * 24 * 3600;
+                $dataProvider->query->andWhere([
+                    'or',
+                    ['is', 'user.last_activity', null],
+                    ['>=', 'user.last_activity', $thirtyDaysAgo],
+                ]);
+            }
 
             $dataProvider->query
                 ->alias('user')
@@ -191,7 +210,7 @@ class UserService
             }
 
             if ($roleName === 'employee') {
-                $dataProvider->query->with(['currentProjects']);
+                $dataProvider->query->with(['currentProjects', 'company', 'administrator', 'currentTasks']);
             }
 
             $dataProvider->sort->attributes = array_merge($dataProvider->sort->attributes, [
@@ -204,7 +223,7 @@ class UserService
                 'substatus'    => ['asc' => ['user.substatus' => SORT_ASC],    'desc' => ['user.substatus' => SORT_DESC]],
             ]);
             $dataProvider->sort->defaultOrder = ['created_at' => SORT_DESC];
-            $dataProvider->pagination = ['pageSize' => 20];
+            $dataProvider->pagination = ['pageSize' => $roleName === 'employee' ? 500 : 20];
 
             return $dataProvider;
         }
@@ -215,15 +234,17 @@ class UserService
             ->where(['aa.item_name' => $roleName])
             ->andWhere(['user.status' => $status]);
 
+        if ($roleName === 'employee') {
+            $query->with(['company', 'administrator']);
+        }
+
         if (in_array($roleName, ['super-administrator', 'administrator'])) {
             $query->andWhere(['user.company_id' => 0]);
         }
 
         return new ActiveDataProvider([
             'query' => $query,
-            'pagination' => [
-                'pageSize' => 20,
-            ],
+            'pagination' => ['pageSize' => $roleName === 'employee' ? 500 : 20],
             'sort' => [
                 'attributes' => [
                     'id' => [
@@ -557,7 +578,7 @@ class UserService
         $comments = UserComments::find()
             ->where([
                 'user_id' => $userIds,
-                'commented_by' => $commentedBy
+               // 'commented_by' => $commentedBy
             ])
             ->orderBy('created_at DESC')
             ->all();
@@ -1009,5 +1030,28 @@ class UserService
             ->one();
 
         return $admin ? (int)$admin['id'] : null;
+    }
+
+    /**
+     * Get last sent template per user
+     * @param array $userIds
+     * @return array [user_id => UserSentTemplate]
+     */
+    private function getLastTemplatesForUsers(array $userIds): array
+    {
+        if (empty($userIds)) {
+            return [];
+        }
+
+        // Subquery: pick the row with the highest id per user
+        $subQuery = \common\models\UserSentTemplate::find()
+            ->select('MAX(id)')
+            ->where(['user_id' => $userIds])
+            ->groupBy('user_id');
+
+        return \common\models\UserSentTemplate::find()
+            ->where(['id' => $subQuery])
+            ->indexBy('user_id')
+            ->all();
     }
 }

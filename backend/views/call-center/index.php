@@ -67,6 +67,15 @@ $this->registerCss('
 .cc-scripts-accordion .cc-script-content.show {
     display: block;
 }
+
+.action-details .table-sm {
+    table-layout: fixed;
+    width: 100%;
+}
+.action-details .table-sm td {
+    word-break: break-all !important;
+    overflow-wrap: anywhere !important;
+}
 ');
 
 $scheduleCallUrl    = Url::to(['/call-center/schedule-call']);
@@ -640,10 +649,17 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                     'tableOptions' => ['class' => 'table table-striped table-bordered'],
                                                     'columns'      => [
                                                         ['class' => 'yii\grid\SerialColumn'],
-                                                        'first_name',
+                                                        [
+                                                            'attribute'      => 'first_name',
+                                                            'contentOptions' => ['style' => 'max-width:150px; word-wrap:break-word;'],
+                                                        ],
                                                         'last_name',
                                                         'phone_number',
-                                                        'email:email',
+                                                        [
+                                                            'attribute'      => 'email',
+                                                            'format'         => 'email',
+                                                            'contentOptions' => ['style' => 'max-width:160px; word-wrap:break-word;'],
+                                                        ],
                                                         [
                                                             'attribute' => 'substatus',
                                                             'label'     => 'Status',

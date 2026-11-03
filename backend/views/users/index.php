@@ -16,6 +16,8 @@ $sendTemplateUrl = Url::to(['send-template']);
 $removeEmployerUrl = Url::to(['remove-employer']);
 $quickSearchUrl    = Url::to(['quick-search']);
 $assignProjectUrl     = Url::to(['projects/assign-to-employees']);
+$saveCommentUrl       = Url::to(['save-comment']);
+$templateHistoryUrl   = Url::to(['template-history']);
 
 $css = "
 .table-danger-soft {
@@ -38,6 +40,56 @@ $css = "
 .qs-item:hover { background: #f5f7ff; }
 .qs-item small { color: #888; display: block; }
 .qs-no-results { padding: 8px 12px; color: #999; font-size: 13px; }
+
+/* Compact employee table */
+.employee-table th,
+.employee-table td {
+    padding: 4px 6px !important;
+    font-size: 12px !important;
+}
+/* Keep action icons at normal size */
+.employee-table td svg {
+    height: 14px !important;
+    width: auto !important;
+    font-size: 14px !important;
+}
+.employee-table td i.fas,
+.employee-table td i.far {
+    font-size: 14px !important;
+}
+.employee-table td a {
+    margin-right: 3px;
+}
+.employee-table tr.action-details-row > td {
+    padding: 0 !important;
+}
+.employee-table tr.action-details-row .content {
+    font-size: 14px !important;
+}
+.employee-table tr.action-details-row .content td,
+.employee-table tr.action-details-row .content th {
+    padding: 8px 12px !important;
+    font-size: 14px !important;
+}
+/* Comment cell */
+.comment-cell { min-width: 130px; }
+.comment-cell .comment-text {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+    font-size: 12px;
+}
+.comment-cell .comment-edit textarea { font-size: 12px; min-width: 140px; }
+.comment-cell .btn-link { font-size: 11px; padding: 0; }
+/* Last template cell */
+.last-template-cell {
+    cursor: pointer;
+    text-decoration: underline dotted;
+    font-size: 12px;
+}
 ";
 
 $this->registerCss($css);
@@ -958,6 +1010,108 @@ $(document).on('click', '.remove-employer-btn', function(e) {
 ";
 
 $this->registerJs($script, \yii\web\View::POS_END);
+
+// JS for employee tab: inline comments, template history popup, inactive toggle
+$scriptExtra = "
+\$(document).on('click', '.btn-edit-comment', function(e) {
+    e.preventDefault();
+    var cell = \$(this).closest('.comment-cell');
+    cell.find('.comment-textarea').val('');
+    cell.find('.comment-edit').show().find('.comment-textarea').focus();
+});
+
+\$(document).on('click', '.btn-cancel-comment', function() {
+    var cell = \$(this).closest('.comment-cell');
+    cell.find('.comment-textarea').val('');
+    cell.find('.comment-edit').hide();
+});
+
+\$(document).on('input', '.comment-textarea', function() {
+    \$(this).closest('.comment-cell').find('.comment-error').hide();
+});
+
+\$(document).on('click', '.btn-save-comment', function() {
+    var btn    = \$(this);
+    var cell   = btn.closest('.comment-cell');
+    var userId = btn.data('user-id');
+    var text   = cell.find('.comment-textarea').val().trim();
+
+    if (!text) {
+        cell.find('.comment-error').text('Comment cannot be empty').show();
+        return;
+    }
+    cell.find('.comment-error').hide();
+
+    btn.prop('disabled', true).text('Saving...');
+
+    \$.ajax({
+        url  : '" . $saveCommentUrl . "',
+        type : 'POST',
+        data : { id: userId, text: text, _csrf: yii.getCsrfToken() },
+        success: function(response) {
+            response = JSON.parse(response);
+            if (response.success) {
+                toastr.success('Comment saved');
+                var escaped = \$('<div>').text(text).html();
+                var now = new Date();
+                var dateStr = now.getFullYear() + '-' +
+                    String(now.getMonth()+1).padStart(2,'0') + '-' +
+                    String(now.getDate()).padStart(2,'0') + ' ' +
+                    String(now.getHours()).padStart(2,'0') + ':' +
+                    String(now.getMinutes()).padStart(2,'0');
+                var entry = '<hr style=\"margin:3px 0;border-color:#ddd;\">'
+                    + '<div style=\"font-size:12px;margin-bottom:2px;\">'
+                    + '<span class=\"comment-text\">' + escaped + '</span>'
+                    + '<small class=\"text-muted d-block\" style=\"font-size:10px;\">' + dateStr + '</small>'
+                    + '</div>';
+                var list = cell.find('.comments-list');
+                if (list.length) {
+                    list.append(entry);
+                } else {
+                    cell.prepend('<div class=\"comments-list\"><div style=\"font-size:12px;margin-bottom:2px;\"><span class=\"comment-text\">'
+                        + escaped + '</span><small class=\"text-muted d-block\" style=\"font-size:10px;\">' + dateStr + '</small></div></div>');
+                }
+                cell.find('.comment-textarea').val('');
+                cell.find('.comment-edit').hide();
+            } else {
+                cell.find('.comment-error').text(response.message || 'Error saving comment').show();
+            }
+        },
+        error: function() { cell.find('.comment-error').text('An error occurred').show(); },
+        complete: function() { btn.prop('disabled', false).text('Save'); }
+    });
+});
+
+// ===== Template send history (double-click on cell) =====
+\$(document).on('dblclick', '.last-template-cell', function() {
+    var userId = \$(this).data('user-id');
+    var modal  = \$('#templateHistoryModal');
+    modal.find('.modal-body').html('<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\"></div></div>');
+    modal.modal('show');
+    \$.ajax({
+        url  : '" . $templateHistoryUrl . "',
+        type : 'GET',
+        data : { id: userId },
+        success: function(response) {
+            response = JSON.parse(response);
+            if (typeof response.tpl !== 'undefined') {
+                modal.find('.modal-body').html(response.tpl);
+            }
+        },
+        error: function() {
+            modal.find('.modal-body').html('<div class=\"alert alert-danger\">Failed to load history</div>');
+        }
+    });
+});
+
+// ===== Inactive employees toggle =====
+$(document).on('change', '#show-inactive-toggle', function() {
+    var url = new URL(window.location.href);
+    url.searchParams.set('UserSearch[hide_inactive]', $(this).is(':checked') ? '1' : '0');
+    window.location.href = url.toString();
+});
+";
+$this->registerJs($scriptExtra, \yii\web\View::POS_END);
 ?>
 <div class="container-fluid">
     <div class="row">
@@ -1036,10 +1190,22 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                 </div>
                                             </div>
 
+                                        <?php if ($tab['role'] === 'employee'): ?>
+                                            <div class="mb-2 ml-1 mt-1">
+                                                <div class="custom-control custom-checkbox">
+                                                    <input type="checkbox" class="custom-control-input" id="show-inactive-toggle"
+                                                        <?= $hideInactive ? 'checked' : '' ?>>
+                                                    <label class="custom-control-label" for="show-inactive-toggle">
+                                                        Hide inactive (&gt;1 month)
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        <?php endif; ?>
+
                                         <?= GridView::widget([
                                             'dataProvider' => $tab['dataProvider'],
                                             'filterModel'  => $tab['filterModel'] ?? null,
-                                            'tableOptions' => ['class' => 'table table-striped table-bordered'],
+                                            'tableOptions' => ['class' => 'table table-striped table-bordered' . ($tab['role'] === 'employee' ? ' employee-table' : '')],
                                             'columns' => [
                                                 [
                                                     'class'           => 'yii\grid\CheckboxColumn',
@@ -1053,10 +1219,29 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                         && (Yii::$app->user->can('assignInvestorToEmployee') || Yii::$app->user->can('assignEmployeeToProject')),
                                                 ],
                                                 ['class' => 'yii\grid\SerialColumn'],
-                                                'email:email',
-                                                'first_name',
+                                                [
+                                                    'attribute'      => 'email',
+                                                    'format'         => 'email',
+                                                    'headerOptions'  => $tab['role'] === 'employee' ? ['style' => 'width:140px;'] : [],
+                                                    'contentOptions' => $tab['role'] === 'employee'
+                                                        ? ['style' => 'max-width:130px; word-break:break-all; overflow-wrap:break-word;']
+                                                        : [],
+                                                ],
+                                                [
+                                                    'attribute'      => 'first_name',
+                                                    'headerOptions'  => $tab['role'] === 'employee' ? ['style' => 'width:90px;'] : [],
+                                                    'contentOptions' => $tab['role'] === 'employee'
+                                                        ? ['style' => 'max-width:80px; word-break:break-word; overflow-wrap:break-word;']
+                                                        : [],
+                                                ],
                                                 'last_name',
-                                                'phone_number',
+                                                [
+                                                    'attribute'      => 'phone_number',
+                                                    'headerOptions'  => $tab['role'] === 'employee' ? ['style' => 'width:100px;'] : [],
+                                                    'contentOptions' => $tab['role'] === 'employee'
+                                                        ? ['style' => 'max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;']
+                                                        : [],
+                                                ],
                                                 [
                                                     'attribute' => 'city',
                                                     'value' => function($model) use ($countries) {
@@ -1082,6 +1267,7 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                     },
                                                     'label' => 'Status',
                                                     'visible' => $tab['role'] === 'employee',
+                                                    'headerOptions' => ['style' => 'width:85px;'],
                                                     'filter'             => \backend\models\User::getSubstatusLabels(),
                                                    // 'filterInputOptions' => ['class' => 'form-control', 'prompt' => '- All -'],
                                                     'contentOptions' => function($model) {
@@ -1115,6 +1301,21 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                     },
                                                 ],
                                                 [
+                                                    'label'   => 'Current Tasks',
+                                                    'format'  => 'raw',
+                                                    'visible' => $tab['role'] === 'employee',
+                                                    'value'   => function($model) {
+                                                        if (empty($model->currentTasks)) {
+                                                            return '<span class="text-muted">—</span>';
+                                                        }
+                                                        $items = [];
+                                                        foreach ($model->currentTasks as $task) {
+                                                            $items[] = Html::encode($task->title);
+                                                        }
+                                                        return implode('<br>', $items);
+                                                    },
+                                                ],
+                                                [
                                                     'attribute' => 'last_activity',
                                                     'label'     => 'Last Activity',
                                                     'value'     => function($model) {
@@ -1130,11 +1331,99 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                     'visible' => $tab['role'] === 'employee',
                                                 ],
                                                 [
+                                                    'label'   => 'Company',
+                                                    'format'  => 'raw',
+                                                    'visible' => $tab['role'] === 'employee',
+                                                    'value'   => function($model) {
+                                                        if (!$model->company) {
+                                                            return '<span class="text-muted">—</span>';
+                                                        }
+                                                        return Html::encode($model->company->name);
+                                                    },
+                                                ],
+                                                [
+                                                    'label'   => 'Manager',
+                                                    'format'  => 'raw',
+                                                    'visible' => $tab['role'] === 'employee',
+                                                    'value'   => function($model) {
+                                                        if (!$model->administrator) {
+                                                            return '<span class="text-muted">—</span>';
+                                                        }
+                                                        $name = trim(
+                                                            ($model->administrator->first_name ?? '') . ' ' .
+                                                            ($model->administrator->last_name  ?? '')
+                                                        );
+                                                        return Html::encode($name ?: $model->administrator->email);
+                                                    },
+                                                ],
+                                                [
+                                                    'label'   => 'Template',
+                                                    'format'  => 'raw',
+                                                    'visible' => $tab['role'] === 'employee',
+                                                    'value'   => function($model) use ($tab) {
+                                                        $tpl = $tab['lastTemplates'][$model->id] ?? null;
+                                                        if (!$tpl) {
+                                                            return '<span class="text-muted">—</span>';
+                                                        }
+                                                        $name = $tpl->template->title ?? ('Template #' . $tpl->template_id);
+                                                        return '<span class="last-template-cell" data-user-id="' . $model->id . '" title="Double-click to view send history">'
+                                                            . Html::encode($name) . '</span>';
+                                                    },
+                                                ],
+                                                [
+                                                    'label'   => 'Comment',
+                                                    'format'  => 'raw',
+                                                    'visible' => $tab['role'] === 'employee' && !in_array('employee', $currentUserRoles),
+                                                    'value'   => function($model) use ($tab) {
+                                                        $comments = $tab['comments'][$model->id] ?? [];
+
+                                                        $result = '<div class="comment-cell">';
+
+                                                        // Show all existing comments
+                                                        if (!empty($comments)) {
+                                                            $result .= '<div class="comments-list">';
+                                                            foreach ($comments as $index => $comment) {
+                                                                if ($index > 0) {
+                                                                    $result .= '<hr style="margin:3px 0;border-color:#ddd;">';
+                                                                }
+                                                                $escaped = Html::encode($comment->comment ?? '');
+                                                                $result .= '<div style="font-size:12px;margin-bottom:2px;">'
+                                                                    . '<span class="comment-text">' . $escaped . '</span>'
+                                                                    . '<small class="text-muted d-block" style="font-size:10px;">'
+                                                                    .   date('Y-m-d H:i', $comment->created_at)
+                                                                    . '</small>'
+                                                                    . '</div>';
+                                                            }
+                                                            $result .= '</div>';
+                                                        }
+
+                                                        // Add new comment form (always empty)
+                                                        $result .= '<div class="comment-edit" style="display:none;">'
+                                                            . '<textarea class="form-control comment-textarea" rows="2" placeholder="New comment..."></textarea>'
+                                                            . '<div class="comment-error text-danger small mt-1" style="display:none;"></div>'
+                                                            . '<div class="mt-1">'
+                                                            .   '<button class="btn btn-xs btn-primary btn-save-comment" data-user-id="' . $model->id . '">Save</button> '
+                                                            .   '<button class="btn btn-xs btn-secondary btn-cancel-comment">Cancel</button>'
+                                                            . '</div>'
+                                                            . '</div>';
+
+                                                        // Always show the add button
+                                                        $result .= '<button class="btn btn-xs btn-link btn-edit-comment p-0" title="Add comment">'
+                                                            . '<i class="fas fa-plus"></i>'
+                                                            . '</button>';
+
+                                                        $result .= '</div>';
+                                                        return $result;
+                                                    },
+                                                ],
+                                                [
                                                     'attribute' => 'created_at',
-                                                    'format' => ['date', 'php:Y-m-d'],
+                                                    'label'     => 'Registered',
+                                                    'format'    => ['date', 'php:Y-m-d'],
                                                 ],
                                                 [
                                                     'class' => 'yii\grid\ActionColumn',
+                                                    'headerOptions' => ['style' => 'min-width:90px;'],
                                                     'visibleButtons' => [
                                                         'view' => Yii::$app->user->can('viewUser'),
                                                         'update' => Yii::$app->user->can('updateUser'),
@@ -1259,6 +1548,20 @@ $this->registerJs($script, \yii\web\View::POS_END);
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="usersModalLabel"></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body"></div>
+        </div>
+    </div>
+</div>
+<!-- Template send history modal -->
+<div class="modal fade" id="templateHistoryModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Template Send History</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>

@@ -40,6 +40,7 @@ class UsersController extends BaseController
                         'assign-existing-task' => ['POST'],
                         'assign-existing-investor' => ['POST'],
                         'assign-existing-project' => ['POST'],
+                        'save-comment' => ['POST'],
                     ],
                 ],
             ]
@@ -53,13 +54,16 @@ class UsersController extends BaseController
      */
     public function actionIndex()
     {
+        $hideInactive = ((Yii::$app->request->queryParams['UserSearch']['hide_inactive'] ?? '1') !== '0');
+
         $userService = new UserService();
-        $tabsData = $userService->getTabsDataForRoles();
+        $tabsData    = $userService->getTabsDataForRoles(options: ['hide_inactive' => $hideInactive]);
         $countries = \common\models\User::getCountries();
 
         return $this->render('index', [
             'tabsData' => $tabsData,
             'countries' => $countries,
+            'hideInactive' => $hideInactive,
         ]);
     }
 
@@ -1879,6 +1883,73 @@ class UsersController extends BaseController
         ], $users);
 
         return ['items' => $items];
+    }
+
+    /**
+     * Save new comment for an employee (each save appends a new record to history).
+     * @return array JSON response
+     */
+    public function actionSaveComment()
+    {
+        $userId = (int) Yii::$app->request->post('id');
+        $text   = trim(Yii::$app->request->post('text', ''));
+
+        if (!$userId || $text === '') {
+            return Json::encode(['success' => false, 'message' => 'Missing required parameters']);
+        }
+
+        try {
+            $employee = $this->findModel($userId);
+        } catch (NotFoundHttpException $e) {
+            return Json::encode(['success' => false, 'message' => 'Employee not found']);
+        }
+
+        $comment = new UserComments();
+        $comment->user_id      = $employee->id;
+        $comment->commented_by = Yii::$app->user->id;
+        $comment->comment      = $text;
+
+        if ($comment->save()) {
+            return Json::encode(['success' => true, 'message' => 'Comment saved', 'text' => $text]);
+        }
+
+        return Json::encode([
+            'success' => false,
+            'message' => 'Failed to save: ' . implode(', ', $comment->getFirstErrors()),
+        ]);
+    }
+
+    /**
+     * Return full template send history for an employee (for the inline modal).
+     * @return array JSON response
+     */
+    public function actionTemplateHistory()
+    {
+        $userId = (int) Yii::$app->request->get('id');
+
+        if (!$userId) {
+            return Json::encode(['success' => false, 'message' => 'Missing employee ID']);
+        }
+
+        try {
+            $employee = $this->findModel($userId);
+        } catch (NotFoundHttpException $e) {
+            return Json::encode(['success' => false, 'message' => 'Employee not found']);
+        }
+
+        $sentTemplates = \common\models\UserSentTemplate::find()
+            ->where(['user_id' => $employee->id])
+            ->with(['template'])
+            ->orderBy(['sent_at' => SORT_DESC])
+            ->all();
+
+        return Json::encode([
+            'success' => true,
+            'tpl'     => $this->renderAjax('_template_history', [
+                'employee'      => $employee,
+                'sentTemplates' => $sentTemplates,
+            ]),
+        ]);
     }
 
 }

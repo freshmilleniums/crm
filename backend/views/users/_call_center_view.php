@@ -12,7 +12,17 @@ use backend\models\User;
 
 $countries = \common\models\User::getCountries();
 ?>
-
+<style>
+    .call-center-employee-view .table-sm {
+        table-layout: fixed !important;
+        width: 100% !important;
+    }
+    .call-center-employee-view .table-sm td {
+        word-break: break-all !important;
+        overflow-wrap: anywhere !important;
+        white-space: normal !important;
+    }
+</style>
 <div class="call-center-employee-view">
     <div class="row">
 
@@ -24,7 +34,7 @@ $countries = \common\models\User::getCountries();
                     <h5 class="mb-0">Employee Information</h5>
                 </div>
                 <div class="card-body p-0">
-                    <table class="table table-sm table-bordered mb-0">
+                    <table class="table table-sm table-bordered mb-0" style="table-layout: fixed; width: 100%;">
                         <tr>
                             <th style="width: 35%;">#</th>
                             <td><?= Html::encode($model->sequential_number) ?></td>

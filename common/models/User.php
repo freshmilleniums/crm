@@ -74,6 +74,11 @@ class User extends ActiveRecord implements IdentityInterface
             }],
             [['total_time_all'], 'integer'],
             [['total_time_all'], 'default', 'value' => 0],
+            [['first_name', 'last_name', 'address', 'phone_number', 'home_phone', 'city', 'state', 'country',
+                'zip_code', 'position_title', 'hr_source', 'sign_signature_text', 'email'], 'filter', 'filter' => function($value) {
+                    return is_string($value) ? strip_tags($value) : $value;
+                }, 'skipOnEmpty' => true
+            ],
         ];
     }
 
@@ -321,6 +326,15 @@ class User extends ActiveRecord implements IdentityInterface
                 ['projects.status' => null],
                 ['not in', 'projects.status', [Project::STATUS_COMPLETED, Project::STATUS_CANCELLED]],
             ]);
+    }
+
+    public function getCurrentTasks()
+    {
+        return $this->hasMany(\common\models\Task::class, ['assigned_to' => 'id'])
+            ->andWhere(['not in', 'status', [
+                \common\models\Task::STATUS_COMPLETED,
+                \common\models\Task::STATUS_CANCELLED,
+            ]]);
     }
 
     public function shouldCreateCorporateEmail()

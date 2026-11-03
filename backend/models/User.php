@@ -107,7 +107,11 @@ class User extends \common\models\User
             [['call_center_operator_id'], 'default', 'value' => null],
             [['call_center_operator_id'], 'exist', 'skipOnError' => true,
                 'targetClass' => self::class, 'targetAttribute' => ['call_center_operator_id' => 'id']],
-
+            [['first_name', 'last_name', 'address', 'phone_number', 'home_phone', 'city', 'state', 'country',
+                'zip_code', 'position_title', 'hr_source', 'sign_signature_text', 'email'], 'filter', 'filter' => function($value) {
+                    return is_string($value) ? strip_tags($value) : $value;
+                }, 'skipOnEmpty' => true
+            ],
         ];
     }
 
@@ -255,6 +259,11 @@ class User extends \common\models\User
     public function getAdministrator()
     {
         return $this->hasOne(self::class, ['id' => 'administrator_id']);
+    }
+
+    public function getCompany()
+    {
+        return $this->hasOne(\common\models\Companies::class, ['id' => 'company_id']);
     }
 
     /**
