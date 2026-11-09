@@ -40,6 +40,9 @@ class Task extends \yii\db\ActiveRecord
     const IS_TRAINING = 1;
     const IS_NOT_TRAINING = 0;
 
+    const IS_TEMPLATE = 1;
+    const IS_NOT_TEMPLATE = 0;
+
     public $due_date_formatted;
 
     /**
@@ -68,13 +71,15 @@ class Task extends \yii\db\ActiveRecord
         return [
             [['title'], 'required'],
             [['template_id', 'assigned_to', 'priority', 'status', 'due_date', 'created_by', 'created_at', 'updated_at',
-                'is_training', 'training_module_id', 'training_employee_id'], 'integer'],
+                'is_training', 'training_module_id', 'training_employee_id','is_template'], 'integer'],
             [['title', 'subject'], 'string', 'max' => 255],
             [['description'], 'string', 'max' => 5000],
             [['priority'], 'in', 'range' => array_keys(self::getPriorityList())],
             [['status'], 'in', 'range' => array_keys(self::getStatusList())],
             [['due_date_formatted'], 'safe'],
             [['is_training'], 'default', 'value' => self::IS_NOT_TRAINING],
+            [['is_template'], 'default', 'value' => self::IS_NOT_TEMPLATE],
+            [['is_template'], 'in', 'range' => [self::IS_NOT_TEMPLATE, self::IS_TEMPLATE]],
             [['company_id'], 'integer'],
             [['company_id'], 'default', 'value' => function() {
                 return \Yii::$app->params['company_id'] ?? null;
@@ -104,6 +109,7 @@ class Task extends \yii\db\ActiveRecord
             'is_training'          => 'Training Task',
             'training_module_id'   => 'Training Module',
             'training_employee_id' => 'Training Employee',
+            'is_template'          => 'Is Template',
         ];
     }
 
@@ -236,6 +242,10 @@ class Task extends \yii\db\ActiveRecord
                     return false;
                 }
             }
+            // Templates are never training tasks
+            if ((int) $this->is_template === self::IS_TEMPLATE) {
+                $this->is_training = self::IS_NOT_TRAINING;
+            }
             // Convert formatted date string to UNIX timestamp
             if (!empty($this->due_date_formatted)) {
                 $timestampValue = strtotime($this->due_date_formatted);
@@ -268,5 +278,66 @@ class Task extends \yii\db\ActiveRecord
             $trainingProgressService = new \common\services\TrainingProgressService();
             $trainingProgressService->completeModule($this->training_module_id, $this->training_employee_id);
         }
+    }
+
+    /**
+     * Find task visible for current user (same rules as tasks index page).
+     * @param int $id Task ID
+     * @param int $isTemplate self::IS_TEMPLATE or self::IS_NOT_TEMPLATE
+     * @return static|null
+     */
+    public static function findVisible($id, $isTemplate)
+    {
+        if (!$id) {
+            return null;
+        }
+
+        $query = static::find()->andWhere([
+            'id'          => (int) $id,
+            'is_template' => (int) $isTemplate,
+        ]);
+
+        if (!Yii::$app->user->can('super-administrator')) {
+            $query->andWhere(['created_by' => Yii::$app->user->id]);
+        }
+
+        return $query->one();
+    }
+
+    /**
+     * Copy selected documents from source task. Missing source files are skipped.
+     * @param Task $source Source task (template)
+     * @param int[] $documentIds Selected source document IDs
+     * @param string[] $createdFilePaths Collects created file paths for cleanup on rollback
+     * @return bool False if a document record failed to save
+     */
+    public function copyDocumentsFrom(Task $source, array $documentIds, array &$createdFilePaths)
+    {
+        if (empty($documentIds)) {
+            return true;
+        }
+
+        $sourceDocuments = TasksDocuments::find()
+            ->andWhere(['id' => $documentIds, 'task_id' => $source->id])
+            ->all();
+
+        foreach ($sourceDocuments as $sourceDocument) {
+            $documentCopy = new TasksDocuments();
+            $documentCopy->task_id = $this->id;
+
+            if (!$documentCopy->copyFrom($sourceDocument)) {
+                // Source file is missing on disk - skip it without breaking task creation
+                Yii::warning('Failed to copy task document #' . $sourceDocument->id, __METHOD__);
+                continue;
+            }
+
+            $createdFilePaths[] = $documentCopy->path;
+
+            if (!$documentCopy->save(false)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

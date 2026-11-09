@@ -878,22 +878,15 @@ class UsersController extends BaseController
         if (Yii::$app->request->isPost && $task->load(Yii::$app->request->post())) {
             // Assignee is controlled by server only
             $task->assigned_to = $id;
+            $task->is_template = \common\models\Task::IS_NOT_TEMPLATE;
 
             $documents = \backend\models\MultipleModel::createMultiple(\common\models\TasksDocuments::class);
             \backend\models\MultipleModel::loadMultiple($documents, Yii::$app->request->post());
 
             $sourceTaskId      = (int) Yii::$app->request->post('source_task_id');
-            $sourceDocumentIds = array_filter(array_map('intval', (array) Yii::$app->request->post('source_document_ids', [])));
-
             if ($sourceTaskId) {
-                $sourceTask = $this->findVisibleTask($sourceTaskId);
-                // Training tasks cannot be cloned
-                if ($sourceTask && (int) $sourceTask->is_training === \common\models\Task::IS_TRAINING) {
-                    return Json::encode([
-                        'success' => false,
-                        'message' => 'Training tasks cannot be cloned.',
-                    ]);
-                }
+                $sourceTask        = \common\models\Task::findVisible($sourceTaskId, \common\models\Task::IS_TEMPLATE);
+                $sourceDocumentIds = array_filter(array_map('intval', (array) Yii::$app->request->post('source_document_ids', [])));
             }
 
             // Physical files created during this request, removed on rollback
@@ -925,28 +918,8 @@ class UsersController extends BaseController
                 }
 
                 // Copy selected documents from source task (clone mode)
-                if ($flag && $sourceTask && !empty($sourceDocumentIds)) {
-                    $sourceDocuments = \common\models\TasksDocuments::find()
-                        ->where(['id' => $sourceDocumentIds, 'task_id' => $sourceTask->id])
-                        ->all();
-
-                    foreach ($sourceDocuments as $sourceDocument) {
-                        $documentCopy = new \common\models\TasksDocuments();
-                        $documentCopy->task_id = $task->id;
-
-                        if (!$documentCopy->copyFrom($sourceDocument)) {
-                            // Source file is missing on disk - skip it without breaking task creation
-                            Yii::warning('Failed to copy task document #' . $sourceDocument->id, __METHOD__);
-                            continue;
-                        }
-
-                        $createdFilePaths[] = $documentCopy->path;
-
-                        if (!$documentCopy->save(false)) {
-                            $flag = false;
-                            break;
-                        }
-                    }
+                if ($flag && $sourceTask) {
+                    $flag = $task->copyDocumentsFrom($sourceTask, $sourceDocumentIds, $createdFilePaths);
                 }
 
                 if ($flag) {
@@ -1014,94 +987,9 @@ class UsersController extends BaseController
         ]);
     }
 
-    /**
-     * Search tasks for Select2 in add task modal.
-     * Visibility is the same as on tasks index page.
-     * @return array JSON response
-     */
-    public function actionSearchTasks()
-    {
-        Yii::$app->response->format = Response::FORMAT_JSON;
 
-        $q = trim(Yii::$app->request->get('q', ''));
 
-        $query = \common\models\Task::find()
-            ->with(['assignedUser'])
-            ->orderBy(['created_at' => SORT_DESC])
-            ->limit(20);
 
-        if (!Yii::$app->user->can('super-administrator')) {
-            $query->andWhere(['created_by' => Yii::$app->user->id]);
-        }
-
-        if ($q !== '') {
-            $query->andWhere([
-                'or',
-                ['like', 'title',   $q],
-                ['like', 'subject', $q],
-            ]);
-        }
-
-        $results = [];
-        foreach ($query->all() as $task) {
-            $results[] = [
-                'id'          => $task->id,
-                'text'        => $task->title,
-                'assignee'    => $task->getAssignedUserName(),
-                'created'     => date('Y-m-d', $task->created_at),
-                'is_training' => (int) $task->is_training === \common\models\Task::IS_TRAINING,
-            ];
-        }
-
-        return ['results' => $results];
-    }
-
-    /**
-     * Get task data for prefill (clone) or preview (assign existing).
-     * @param int $id Task ID
-     * @return array JSON response
-     */
-    public function actionGetTaskData($id)
-    {
-        Yii::$app->response->format = Response::FORMAT_JSON;
-
-        $task = $this->findVisibleTask($id);
-
-        if (!$task) {
-            return [
-                'success' => false,
-                'message' => 'Task not found.',
-            ];
-        }
-
-        $documents = [];
-        foreach ($task->documents as $document) {
-            $documents[] = [
-                'id'   => $document->id,
-                'name' => $document->getFileName(),
-                'url'  => $document->getUrl(),
-                'type' => $document->getPreviewType(),
-            ];
-        }
-
-        return [
-            'success' => true,
-            'task'    => [
-                'id'            => $task->id,
-                'title'         => $task->title,
-                'subject'       => $task->subject,
-                'description'   => $task->description,
-                'priority'      => $task->priority,
-                'priority_name' => $task->getPriorityName(),
-                'status'        => $task->status,
-                'status_name'   => $task->getStatusName(),
-                'due_date'      => $task->due_date_formatted,
-                'assigned_to'   => $task->assigned_to,
-                'assignee'      => $task->getAssignedUserName(),
-            ],
-            'documents' => $documents,
-        ];
-    }
 
     /**
      * Reassign existing task to employee. Previous assignee is unlinked.
@@ -1115,7 +1003,7 @@ class UsersController extends BaseController
         }
 
         $employee = $this->findModel($id);
-        $task     = $this->findVisibleTask(Yii::$app->request->post('task_id'));
+        $task     = \common\models\Task::findVisible(Yii::$app->request->post('task_id'), \common\models\Task::IS_NOT_TEMPLATE);
 
         if (!$task) {
             return Json::encode([
@@ -1156,26 +1044,6 @@ class UsersController extends BaseController
             'success' => false,
             'message' => 'Failed to assign task: ' . implode(', ', $task->getFirstErrors()),
         ]);
-    }
-
-    /**
-     * Find task visible for current user (same rules as tasks index page).
-     * @param int $id Task ID
-     * @return \common\models\Task|null
-     */
-    protected function findVisibleTask($id)
-    {
-        if (!$id) {
-            return null;
-        }
-
-        $query = \common\models\Task::find()->andWhere(['id' => (int) $id]);
-
-        if (!Yii::$app->user->can('super-administrator')) {
-            $query->andWhere(['created_by' => Yii::$app->user->id]);
-        }
-
-        return $query->one();
     }
 
     /**

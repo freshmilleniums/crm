@@ -50,6 +50,43 @@ $isNewRecord = $model->isNewRecord;
 
     <?= $form->field($model, 'comment')->textarea(['rows' => 4, 'maxlength' => true]) ?>
 
+    <hr>
+    <h5>Investor SMTP Settings</h5>
+    <p class="text-muted small">Configure the outgoing email account for this investor. Leave blank if not needed.</p>
+
+    <?= $form->field($model, 'smtp_host')->textInput(['maxlength' => true, 'placeholder' => 'e.g. smtp.gmail.com']) ?>
+
+    <div class="row">
+        <div class="col-md-4">
+            <?= $form->field($model, 'smtp_port')->textInput(['type' => 'number', 'min' => 1, 'max' => 65535]) ?>
+        </div>
+        <div class="col-md-4">
+            <?= $form->field($model, 'smtp_encryption')->dropdownList(
+                \common\models\Investor::getSmtpEncryptionList(),
+                ['prompt' => 'Select...']
+            ) ?>
+        </div>
+        <div class="col-md-4">
+            <?= $form->field($model, 'smtp_username')->textInput(['maxlength' => true, 'placeholder' => 'Login or identifier']) ?>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <?= $form->field($model, 'plainSmtpPassword')->passwordInput([
+                'autocomplete' => 'new-password',
+                'placeholder'  => $model->isNewRecord ? 'Password' : 'Leave blank to keep current',
+            ])->hint($model->isNewRecord ? '' : 'Fill only if you want to change the password') ?>
+        </div>
+        <div class="col-md-6">
+            <?= $form->field($model, 'smtp_from_email')->textInput([
+                'maxlength'   => true,
+                'type'        => 'email',
+                'placeholder' => 'e.g. noreply@investor.com',
+            ])->hint('From address in outgoing emails. If empty, SMTP username or investor email is used.') ?>
+        </div>
+    </div>
+
     <div class="form-group text-right">
         <?= Html::button($isNewRecord ? 'Create Investor' : 'Save', [
             'type' => $isNewRecord ? 'submit' : 'button',

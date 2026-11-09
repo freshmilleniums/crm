@@ -125,7 +125,7 @@ $this->registerJsFile('@web/js/mobile.js', ['depends' => [\yii\web\JqueryAsset::
         <!-- /.navbar -->
 
         <!-- Main Sidebar Container -->
-        <? //= $this->render('sidebar', ['assetDir' => $assetDir]) ?>
+        <?php //= $this->render('sidebar', ['assetDir' => $assetDir]) ?>
 
         <!-- Content Wrapper. Contains page content -->
         <?= $this->render('content', ['content' => $content, 'assetDir' => $assetDir]) ?>

@@ -42,6 +42,28 @@ use yii\widgets\DetailView;
                 'attribute' => 'updated_at',
                 'format' => ['datetime', 'php:Y-m-d H:i:s'],
             ],
+            [
+                'label' => 'SMTP Host',
+                'value' => $model->smtp_host ?: '—',
+            ],
+            [
+                'label' => 'SMTP Port / Encryption',
+                'value' => $model->smtp_host
+                    ? $model->smtp_port . ' / ' . $model->getSmtpEncryptionName()
+                    : '—',
+            ],
+            [
+                'label' => 'SMTP Username',
+                'value' => $model->smtp_username ?: '—',
+            ],
+            [
+                'label' => 'SMTP From Email',
+                'value' => $model->smtp_host ? $model->getSmtpFromEmail() : '—',
+            ],
+            [
+                'label' => 'SMTP Password',
+                'value' => $model->smtp_password ? '••••••••' : '—',
+            ],
         ],
     ]) ?>
 

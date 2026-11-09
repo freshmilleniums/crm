@@ -192,6 +192,72 @@ class SmtpService
         return $messageId;
     }
 
+    /**
+     * Send email via investor's own SMTP credentials.
+     * No "Sent" folder record — investor emails are outbound-only.
+     *
+     * @param \common\models\Investor $investor
+     * @param string $to
+     * @param string $subject
+     * @param string $body             HTML body
+     * @param string|null $cc
+     * @param string|null $bcc
+     * @param array $fileAttachments   [['path'=>..,'name'=>..,'mime'=>..], ...]
+     * @param UploadedFile[]|null $uploadedAttachments
+     * @return string Message-ID
+     * @throws Exception
+     */
+    public function sendFromInvestor(
+        \common\models\Investor $investor,
+        string $to,
+        string $subject,
+        string $body,
+        ?string $cc = null,
+        ?string $bcc = null,
+        array $fileAttachments = [],
+                                $uploadedAttachments = null
+    ): string {
+        if (!$investor->hasSmtpConfig()) {
+            throw new Exception('Investor SMTP is not configured.');
+        }
+
+        $encryptionMap = [
+            \common\models\Investor::SMTP_ENCRYPTION_SSL      => 'ssl',
+            \common\models\Investor::SMTP_ENCRYPTION_TLS      => 'tls',
+            \common\models\Investor::SMTP_ENCRYPTION_STARTTLS => 'tls',
+        ];
+        $smtpEncryption = $encryptionMap[$investor->smtp_encryption] ?? 'tls';
+
+        $password = $investor->getDecryptedSmtpPassword();
+        if (!$password) {
+            throw new Exception('Failed to decrypt investor SMTP password.');
+        }
+
+        $fromEmail = $investor->getSmtpFromEmail();
+        $fromName  = $investor->getFullName();
+        $messageId = $this->generateMessageId($fromEmail);
+
+        $this->dispatch(
+            $investor->smtp_host,
+            (int)$investor->smtp_port,
+            $smtpEncryption,
+            $investor->smtp_username,
+            $password,
+            $fromEmail,
+            $fromName,
+            $to,
+            $cc,
+            $bcc,
+            $subject,
+            $body,
+            $uploadedAttachments,
+            $messageId,
+            $fileAttachments
+        );
+
+        return $messageId;
+    }
+
     private function dispatch($host, $port, $encryption, $username, $password, $fromEmail, $fromName, $to, $cc, $bcc, $subject, $body, $attachments, $messageId, array $fileAttachments = [])
     {
         $scheme = ($encryption === 'ssl' || $port == 465) ? 'smtps' : 'smtp';

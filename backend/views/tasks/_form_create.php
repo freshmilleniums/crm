@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\bootstrap4\ActiveForm;
 use kartik\datetime\DateTimePicker;
+use common\models\Task;
 use common\models\TasksDocuments;
 use kartik\file\FileInput;
 use backend\widgets\dynamicForm\DynamicFormWidget;
@@ -12,6 +13,8 @@ use backend\widgets\dynamicForm\DynamicFormWidget;
 /* @var $documents TasksDocuments[] */
 /* @var $employees array */
 /* @var $form yii\bootstrap4\ActiveForm */
+/* @var $sourceTask common\models\Task|null */
+/* @var $sourceDocumentIds int[] */
 
 if (count($documents) == 0) {
     $documents = [new TasksDocuments()];
@@ -25,6 +28,13 @@ if (count($documents) == 0) {
             'action' => ['tasks/create-ajax'],
             'options' => ['enctype' => 'multipart/form-data']
         ]); ?>
+
+      
+        <?= Html::activeHiddenInput($model, 'is_template', ['value' => Task::IS_NOT_TEMPLATE]) ?>
+
+        <?= $this->render('_template_clone', [
+            'sourceTask' => $sourceTask ?? null,
+        ]) ?>
 
         <?= $form->field($model, 'title')->textInput(['maxlength' => true]) ?>
 
@@ -67,6 +77,11 @@ if (count($documents) == 0) {
                 ]) ?>
             </div>
         </div>
+
+        <?= $this->render('_template_clone_documents', [
+            'sourceTask'        => $sourceTask ?? null,
+            'sourceDocumentIds' => $sourceDocumentIds ?? [],
+        ]) ?>
 
         <!-- Documents Section -->
         <?php DynamicFormWidget::begin([

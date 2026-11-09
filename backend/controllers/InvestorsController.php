@@ -9,7 +9,12 @@ use backend\models\InvestorsSearch;
 use backend\models\User;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\UploadedFile;
 use yii\filters\VerbFilter;
+use yii\helpers\ArrayHelper;
+use common\services\SmtpService;
+use common\models\Template;
+use common\models\UserSentTemplate;
 
 /**
  * InvestorsController implements the CRUD actions for Investor model.
@@ -28,6 +33,8 @@ class InvestorsController extends BaseController
                     'class' => VerbFilter::class,
                     'actions' => [
                         'delete' => ['POST'],
+                        'send-email-ajax' => ['GET'],
+                        'send-email'      => ['POST'],
                     ],
                 ],
             ]
@@ -332,5 +339,142 @@ class InvestorsController extends BaseController
         }
 
         throw new NotFoundHttpException('The requested investor does not exist.');
+    }
+
+    /**
+     * Render "Send Email from Investor" modal form via AJAX.
+     */
+    public function actionSendEmailAjax()
+    {
+        if (!Yii::$app->request->isAjax) {
+            throw new NotFoundHttpException('Invalid request.');
+        }
+
+        $companyId = Yii::$app->params['company_id'] ?? null;
+        $currentUser     = Yii::$app->user->identity;
+        $administratorId = null;
+
+        if (Yii::$app->user->can('administrator')) {
+            // Administrator sees only employees assigned to them
+            $administratorId = $currentUser->id;
+        }
+
+        $employeesList = User::getEmployeesDropdownList($administratorId, User::SUBSTATUS_ACTIVE_EMPLOYEE);
+
+        // Load only investors that have SMTP configured
+        $investors     = Investor::getSmtpConfiguredList();
+        $investorsList = ArrayHelper::map($investors, 'id', fn($investor) => $investor->getFullName() . ' <' . $investor->getSmtpFromEmail() . '>');
+
+        $templatesList = ArrayHelper::map(
+            Template::find()->orderBy(['title' => SORT_ASC])->all(),
+            'id',
+            fn($t) => '[' . $t->getCategoryName() . '] ' . $t->title
+        );
+
+        return json_encode([
+            'tpl' => $this->renderAjax('_send_email_modal', [
+                'investorsList' => $investorsList,
+                'employeesList' => $employeesList,
+                'templatesList' => $templatesList,
+            ]),
+        ]);
+    }
+
+    /**
+     * Send email from the selected investor via its own SMTP credentials.
+     */
+    public function actionSendEmail()
+    {
+        if (!Yii::$app->request->isAjax) {
+            throw new NotFoundHttpException('Invalid request.');
+        }
+
+        $investorId = (int)Yii::$app->request->post('investor_id');
+        $employeeId = (int)Yii::$app->request->post('employee_id');
+        $cc         = trim((string)Yii::$app->request->post('cc', ''));
+        $bcc        = trim((string)Yii::$app->request->post('bcc', ''));
+        $subject    = trim((string)Yii::$app->request->post('subject', ''));
+        $body       = (string)Yii::$app->request->post('body', '');
+        $templateId = (int)Yii::$app->request->post('template_id');
+
+        if (!$investorId || !$employeeId) {
+            return json_encode(['success' => false, 'message' => 'Investor and recipient are required']);
+        }
+
+        $employee = User::findOne($employeeId);
+        if (!$employee || empty($employee->email)) {
+            return json_encode(['success' => false, 'message' => 'Employee not found or has no email']);
+        }
+
+        $currentUser = Yii::$app->user->identity;
+        if (Yii::$app->user->can('administrator') && $employee->administrator_id !== $currentUser->id) {
+            return json_encode(['success' => false, 'message' => 'Access denied']);
+        }
+
+        $to = $employee->email;
+
+        $companyId = Yii::$app->params['company_id'] ?? null;
+        $investor  = Investor::findOne(['id' => $investorId, 'company_id' => $companyId]);
+
+        if (!$investor) {
+            return json_encode(['success' => false, 'message' => 'Investor not found']);
+        }
+
+        if (!$investor->hasSmtpConfig()) {
+            return json_encode(['success' => false, 'message' => 'This investor has no SMTP configuration']);
+        }
+
+        $uploadedFiles   = UploadedFile::getInstancesByName('attachments');
+        $fileAttachments = [];
+        $template        = $templateId ? Template::findOne($templateId) : null;
+
+        if ($template) {
+            foreach ($template->documents as $doc) {
+                $path = $doc->getFilePath();
+                if ($path && file_exists($path)) {
+                    $fileAttachments[] = [
+                        'path' => $path,
+                        'name' => $doc->getFileName(),
+                        'mime' => mime_content_type($path) ?: 'application/octet-stream',
+                    ];
+                }
+            }
+        }
+
+        $smtpService = new SmtpService();
+
+        try {
+            if ($template) {
+                $replaced     = $template->replaceMacros($employee->id);
+                $finalSubject = $replaced['subject'] ?: $subject ?: '(No Subject)';
+                $finalBody    = $replaced['body'];
+
+                $smtpService->sendFromInvestor(
+                    $investor, $to, $finalSubject, $finalBody,
+                    $cc ?: null, $bcc ?: null, $fileAttachments, $uploadedFiles ?: null
+                );
+
+                $record          = UserSentTemplate::createFromTemplate($template, $employee->id, Yii::$app->user->id);
+                $record->subject = $finalSubject;
+                $record->body    = $finalBody;
+                $record->save();
+
+            } else {
+                if (!$subject) {
+                    return json_encode(['success' => false, 'message' => 'Subject is required']);
+                }
+
+                $smtpService->sendFromInvestor(
+                    $investor, $to, $subject, $body,
+                    $cc ?: null, $bcc ?: null, $fileAttachments, $uploadedFiles ?: null
+                );
+            }
+
+        } catch (\Exception $e) {
+            Yii::error('Investor email send failed: ' . $e->getMessage(), 'investor-email');
+            return json_encode(['success' => false, 'message' => 'Failed to send: ' . $e->getMessage()]);
+        }
+
+        return json_encode(['success' => true, 'message' => 'Email sent successfully.']);
     }
 }

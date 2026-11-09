@@ -25,15 +25,6 @@ if (count($documents) == 0) {
     $documents = [new TasksDocuments()];
 }
 
-$sourceDocuments = $sourceTask ? $sourceTask->documents : [];
-
-// Icons for non-image documents preview (keep in sync with documentIcons in JS below)
-$documentIcons = [
-    'pdf'      => 'fas fa-file-pdf text-danger',
-    'document' => 'fas fa-file text-secondary',
-    'other'    => 'fas fa-file text-secondary',
-];
-
 // Result row in task search dropdown: title + assignee + created date
 $taskResultTemplate = new JsExpression('function(item) {
     if (item.loading) {
@@ -51,7 +42,7 @@ $taskResultTemplate = new JsExpression('function(item) {
 ?>
 
     <div class="add-task-form"
-         data-task-data-url="<?= Url::to(['users/get-task-data']) ?>"
+         data-task-data-url="<?= Url::to(['tasks/get-task-data']) ?>"
          data-employee-id="<?= $employee->id ?>">
 
         <div class="card card-secondary card-tabs mb-0">
@@ -87,40 +78,10 @@ $taskResultTemplate = new JsExpression('function(item) {
                             'options'=> ['enctype' => 'multipart/form-data', 'data-pjax' => false],
                         ]); ?>
 
-                        <div class="form-group">
-                            <label class="control-label">Copy from existing task</label>
-                            <?= Select2::widget([
-                                'name'          => 'source_task_id',
-                                'value'         => $sourceTask ? $sourceTask->id : '',
-                                'initValueText' => $sourceTask ? $sourceTask->title : '',
-                                'options'       => [
-                                    'id'          => 'clone-task-select',
-                                    'placeholder' => 'Search task to copy (optional)...',
-                                ],
-                                'pluginOptions' => [
-                                    'allowClear'         => true,
-                                    'minimumInputLength' => 0,
-                                    'dropdownParent'     => new JsExpression('$("#clone-task-select").closest(".modal")'),
-                                    'ajax'               => [
-                                        'url'            => Url::to(['users/search-tasks']),
-                                        'dataType'       => 'json',
-                                        'delay'          => 250,
-                                        'data'           => new JsExpression('function(params) { return {q: params.term}; }'),
-                                        // Training tasks are visible but cannot be selected for cloning
-                                        'processResults' => new JsExpression('function(data) {
-                                        data.results.forEach(function(item) {
-                                            if (item.is_training) {
-                                                item.disabled = true;
-                                            }
-                                        });
-                                        return data;
-                                    }'),
-                                    ],
-                                    'templateResult' => $taskResultTemplate,
-                                ],
-                            ]) ?>
-                            <small class="form-text text-muted">Fields will be prefilled from the selected task. Training tasks cannot be cloned.</small>
-                        </div>
+                        <?= $this->render('@backend/views/tasks/_template_clone', [
+                            'sourceTask'        => $sourceTask,
+                            'sourceDocumentIds' => $sourceDocumentIds,
+                        ]) ?>
 
                         <?= $form->field($task, 'assigned_to')->hiddenInput()->label(false) ?>
 
@@ -171,47 +132,10 @@ $taskResultTemplate = new JsExpression('function(item) {
                                 ]) ?>
                             </div>
                         </div>
-
-                        <!-- Documents copied from source task (clone mode) -->
-                        <div id="clone-source-documents" class="card mb-3 border" style="<?= !empty($sourceDocuments) ? '' : 'display: none;' ?>">
-                            <div class="card-header bg-white font-weight-bold">Documents from source task</div>
-                            <div class="card-body clone-source-documents-list task-document-tiles">
-                                <?php foreach ($sourceDocuments as $sourceDocument): ?>
-                                    <?php $previewType = $sourceDocument->getPreviewType(); ?>
-                                    <div class="task-document-tile">
-                                        <a href="<?= Html::encode($sourceDocument->getUrl()) ?>"
-                                           target="_blank"
-                                           class="task-document-preview"
-                                           title="<?= Html::encode($sourceDocument->getFileName()) ?>">
-                                            <?php if ($previewType === 'image'): ?>
-                                                <img src="<?= Html::encode($sourceDocument->getUrl()) ?>" alt="">
-                                            <?php else: ?>
-                                                <i class="<?= $documentIcons[$previewType] ?? $documentIcons['other'] ?>"></i>
-                                            <?php endif; ?>
-                                        </a>
-                                        <div class="form-check">
-                                            <?= Html::checkbox(
-                                                'source_document_ids[]',
-                                                in_array((int) $sourceDocument->id, $sourceDocumentIds, true),
-                                                [
-                                                    'value' => $sourceDocument->id,
-                                                    'id'    => 'source-document-' . $sourceDocument->id,
-                                                    'class' => 'form-check-input',
-                                                ]
-                                            ) ?>
-                                            <label class="form-check-label"
-                                                   for="source-document-<?= $sourceDocument->id ?>"
-                                                   title="<?= Html::encode($sourceDocument->getFileName()) ?>">
-                                                <?= Html::encode($sourceDocument->getFileName()) ?>
-                                            </label>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                            <div class="card-footer bg-white">
-                                <small class="text-muted">Checked documents will be copied to the new task.</small>
-                            </div>
-                        </div>
+                        <?= $this->render('@backend/views/tasks/_template_clone_documents', [
+                            'sourceTask'        => $sourceTask,
+                            'sourceDocumentIds' => $sourceDocumentIds,
+                        ]) ?>
 
                         <?php DynamicFormWidget::begin([
                             'widgetContainer' => 'documents_dynamic_form_wrapper',
@@ -296,10 +220,10 @@ $taskResultTemplate = new JsExpression('function(item) {
                                     'minimumInputLength' => 0,
                                     'dropdownParent'     => new JsExpression('$("#assign-task-select").closest(".modal")'),
                                     'ajax'               => [
-                                        'url'      => Url::to(['users/search-tasks']),
+                                        'url'      => Url::to(['tasks/search-tasks']),
                                         'dataType' => 'json',
                                         'delay'    => 250,
-                                        'data'     => new JsExpression('function(params) { return {q: params.term}; }'),
+                                        'data'     => new JsExpression('function(params) { return {q: params.term, is_template: 0}; }'),
                                     ],
                                     'templateResult' => $taskResultTemplate,
                                 ],
@@ -407,7 +331,7 @@ var documentIcons = {
 };
 
 function loadTaskData(taskId, callback) {
-    $.getJSON(taskDataUrl, { id: taskId }, function(response) {
+    $.getJSON(taskDataUrl, { id: taskId, is_template: 0 }, function(response) {
         if (!response.success) {
             toastr.error(response.message);
             return;
@@ -432,64 +356,6 @@ function buildDocumentPreview(taskDocument) {
     return $link;
 }
 
-// ===== Clone mode (Create Task tab) =====
-function renderSourceDocuments(taskDocuments) {
-    var $block = $('#clone-source-documents');
-    var $list  = $block.find('.clone-source-documents-list').empty();
-
-    if (!taskDocuments.length) {
-        $block.hide();
-        return;
-    }
-
-    taskDocuments.forEach(function(taskDocument) {
-        var inputId = 'source-document-' + taskDocument.id;
-        var $tile   = $('<div class="task-document-tile"></div>');
-        var $check  = $('<div class="form-check"></div>');
-
-        $tile.append(buildDocumentPreview(taskDocument));
-
-        $('<input type="checkbox" class="form-check-input" name="source_document_ids[]" checked>')
-            .attr('id', inputId)
-            .val(taskDocument.id)
-            .appendTo($check);
-
-        $('<label class="form-check-label"></label>')
-            .attr('for', inputId)
-            .attr('title', taskDocument.name)
-            .text(taskDocument.name)
-            .appendTo($check);
-
-        $tile.append($check);
-        $list.append($tile);
-    });
-
-    $block.show();
-}
-
-$('#clone-task-select').on('select2:select', function(e) {
-    // Safety check, training tasks are disabled in dropdown
-    if (e.params.data.is_training) {
-        $(this).val(null).trigger('change');
-        toastr.warning('Training tasks cannot be cloned.');
-        return;
-    }
-
-    loadTaskData(e.params.data.id, function(response) {
-        var task = response.task;
-
-        $('#task-title').val(task.title);
-        $('#task-subject').val(task.subject);
-        $('#task-description').val(task.description);
-        $('#task-priority').val(task.priority);
-
-        renderSourceDocuments(response.documents);
-    });
-});
-
-$('#clone-task-select').on('select2:clear', function() {
-    renderSourceDocuments([]);
-});
 
 // ===== Assign Existing tab =====
 var $assignForm = $('#assign-existing-task-form');

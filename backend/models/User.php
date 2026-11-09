@@ -338,7 +338,7 @@ class User extends \common\models\User
      * @param int|null $administratorId - filter by administrator (optional)
      * @return array [id => 'Full Name']
      */
-    public static function getEmployeesDropdownList($administratorId = null)
+    public static function getEmployeesDropdownList($administratorId = null, $substatus = null)
     {
         $query = self::find()
             ->innerJoin('auth_assignment', 'auth_assignment.user_id = user.id')
@@ -347,6 +347,10 @@ class User extends \common\models\User
 
         if ($administratorId !== null) {
             $query->andWhere(['user.administrator_id' => $administratorId]);
+        }
+
+        if ($substatus !== null) {
+            $query->andWhere(['user.substatus' => $substatus]);
         }
 
         $employees = $query

@@ -21,6 +21,12 @@ use yii\behaviors\TimestampBehavior;
  * @property int $created_at
  * @property int $updated_at
  * @property int|null $employees_count
+ * @property string|null $smtp_host
+ * @property int|null $smtp_port
+ * @property int|null $smtp_encryption
+ * @property string|null $smtp_username
+ * @property string|null $smtp_password
+ * @property string|null $smtp_from_email
  *
  * @property User $creator
  * @property InvestorEmployee[] $investorEmployees
@@ -34,7 +40,12 @@ class Investor extends ActiveRecord
     const TYPE_CORPORATE = 4;
     const TYPE_OTHER = 5;
 
+    const SMTP_ENCRYPTION_SSL = 1;
+    const SMTP_ENCRYPTION_TLS = 2;
+    const SMTP_ENCRYPTION_STARTTLS = 3;
+
     public $employees_count;
+    public $plainSmtpPassword;
 
     /**
      * {@inheritdoc}
@@ -73,6 +84,13 @@ class Investor extends ActiveRecord
             [['company_id'], 'default', 'value' => function() {
                 return \Yii::$app->params['company_id'] ?? null;
             }],
+            [['smtp_host', 'smtp_username', 'smtp_from_email'], 'string', 'max' => 255],
+            [['smtp_port'], 'integer', 'min' => 1, 'max' => 65535],
+            [['smtp_port'], 'default', 'value' => 587],
+            [['smtp_encryption'], 'in', 'range' => array_keys(self::getSmtpEncryptionList())],
+            [['smtp_encryption'], 'default', 'value' => self::SMTP_ENCRYPTION_TLS],
+            [['smtp_from_email'], 'email'],
+            [['plainSmtpPassword'], 'string'],
         ];
     }
 
@@ -93,6 +111,13 @@ class Investor extends ActiveRecord
             'created_by' => 'Created By',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
+            'smtp_host'          => 'SMTP Host',
+            'smtp_port'          => 'SMTP Port',
+            'smtp_encryption'    => 'SMTP Encryption',
+            'smtp_username'      => 'SMTP Username',
+            'smtp_password'      => 'SMTP Password',
+            'smtp_from_email'    => 'SMTP From Email',
+            'plainSmtpPassword'  => 'SMTP Password',
         ];
     }
 
@@ -118,6 +143,21 @@ class Investor extends ActiveRecord
                     $this->company_id = \Yii::$app->params['company_id'] ?? null;
                 }
                 if ($this->company_id === null || $this->company_id < 1) {
+                    return false;
+                }
+            }
+            if ($this->plainSmtpPassword) {
+                $key = \Yii::$app->params['emailEncryptionKey'] ?? null;
+                if (empty($key)) {
+                    $this->addError('plainSmtpPassword', 'Email encryption key is not configured.');
+                    return false;
+                }
+                try {
+                    $this->smtp_password = base64_encode(
+                        \Yii::$app->security->encryptByPassword($this->plainSmtpPassword, $key)
+                    );
+                } catch (\Exception $e) {
+                    $this->addError('plainSmtpPassword', 'Failed to encrypt SMTP password: ' . $e->getMessage());
                     return false;
                 }
             }
@@ -200,5 +240,69 @@ class Investor extends ActiveRecord
             ->all();
 
         return \yii\helpers\ArrayHelper::map($investors, 'id', 'full_name');
+    }
+
+    public function getDecryptedSmtpPassword()
+    {
+        $key = \Yii::$app->params['emailEncryptionKey'] ?? null;
+        if (empty($key) || empty($this->smtp_password)) {
+            return null;
+        }
+        try {
+            return \Yii::$app->security->decryptByPassword(
+                base64_decode($this->smtp_password),
+                $key
+            );
+        } catch (\Exception $e) {
+            \Yii::error('Failed to decrypt SMTP password for investor ' . $this->id . ': ' . $e->getMessage(), 'email');
+            return null;
+        }
+    }
+
+    public static function getSmtpEncryptionList()
+    {
+        return [
+            self::SMTP_ENCRYPTION_SSL      => 'SSL',
+            self::SMTP_ENCRYPTION_TLS      => 'TLS',
+            self::SMTP_ENCRYPTION_STARTTLS => 'STARTTLS',
+        ];
+    }
+
+    public function getSmtpEncryptionName()
+    {
+        return self::getSmtpEncryptionList()[$this->smtp_encryption] ?? 'Unknown';
+    }
+
+    public function hasSmtpConfig()
+    {
+        return !empty($this->smtp_host)
+            && !empty($this->smtp_username)
+            && !empty($this->smtp_password);
+    }
+
+    public function getSmtpFromEmail()
+    {
+        if (!empty($this->smtp_from_email)) {
+            return $this->smtp_from_email;
+        }
+
+        if (!empty($this->smtp_username) && filter_var($this->smtp_username, FILTER_VALIDATE_EMAIL)) {
+            return $this->smtp_username;
+        }
+
+        return $this->email;
+    }
+
+    /**
+     * Get investors with SMTP configured for email sending.
+     * @return static[]
+     */
+    public static function getSmtpConfiguredList(): array
+    {
+        return self::find()
+            ->andWhere(['is not', 'smtp_host', null])
+            ->andWhere(['<>', 'smtp_host', ''])
+            ->orderBy(['first_name' => SORT_ASC, 'last_name' => SORT_ASC])
+            ->all();
     }
 }

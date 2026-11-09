@@ -14,6 +14,7 @@ use yii\filters\VerbFilter;
 use yii\filters\AccessControl;
 use backend\models\MultipleModel;
 use yii\helpers\Json;
+use yii\web\Response;
 
 /**
  * TasksController implements the CRUD actions for Task model.
@@ -44,19 +45,32 @@ class TasksController extends BaseController
      */
     public function actionIndex()
     {
+        $activeTab = Yii::$app->request->get('tab', 'tasks');
+
+        // Tab "Tasks" — regular tasks
         $searchModel = new TasksSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+        $dataProvider->query->andWhere(['tasks.is_template' => Task::IS_NOT_TEMPLATE]);
 
-        // Super-administrator sees all employees, others see only their employees
+        // Tab "Templates" — task templates
+        $searchModelTemplates = new TasksSearch();
+        $dataProviderTemplates = $searchModelTemplates->search(Yii::$app->request->queryParams);
+        $dataProviderTemplates->query->andWhere(['tasks.is_template' => Task::IS_TEMPLATE]);
+
         if (!Yii::$app->user->can('super-administrator')) {
-            $dataProvider->query->andWhere(['created_by' => Yii::$app->user->id]);
+            $dataProvider->query->andWhere(['tasks.created_by' => Yii::$app->user->id]);
+            $dataProviderTemplates->query->andWhere(['tasks.created_by' => Yii::$app->user->id]);
         }
 
         $dataProvider->query->with(['assignedUser', 'creator']);
+        $dataProviderTemplates->query->with(['assignedUser', 'creator']);
 
         return $this->render('index', [
-            'searchModel' => $searchModel,
-            'dataProvider' => $dataProvider,
+            'searchModel'          => $searchModel,
+            'dataProvider'         => $dataProvider,
+            'searchModelTemplates' => $searchModelTemplates,
+            'dataProviderTemplates'=> $dataProviderTemplates,
+            'activeTab'            => $activeTab,
         ]);
     }
 
@@ -84,21 +98,39 @@ class TasksController extends BaseController
     public function actionCreateAjax()
     {
         $model = new Task();
+        $model->is_template = (int) Yii::$app->request->get('is_template', Task::IS_NOT_TEMPLATE);
         $model->created_by = Yii::$app->user->id;
 
         $documents = [new TasksDocuments()];
         $employees = $this->getEmployeesList();
+        $sourceTask        = null;
+        $sourceDocumentIds = [];
 
         if (Yii::$app->request->isPost && $model->load(Yii::$app->request->post())) {
 
             $documents = MultipleModel::createMultiple(TasksDocuments::class);
             MultipleModel::loadMultiple($documents, Yii::$app->request->post());
 
+            // Only regular tasks can be cloned from a template
+            $sourceTaskId = (int) Yii::$app->request->post('source_task_id');
+            if ($sourceTaskId && !$model->is_template) {
+                $sourceTask        = Task::findVisible($sourceTaskId, Task::IS_TEMPLATE);
+                $sourceDocumentIds = array_filter(array_map('intval', (array) Yii::$app->request->post('source_document_ids', [])));
+            }
+
+            // Physical files created during this request, removed on rollback
+            $createdFilePaths = [];
+
             $transaction = Yii::$app->db->beginTransaction();
             $success = false;
             $message = '';
 
             try {
+                // Templates are not bound to an employee or a deadline
+                if ($model->is_template) {
+                    $model->assigned_to = null;
+                    $model->due_date = null;
+                }
                 $flag = $model->save();
 
                 if ($flag) {
@@ -108,6 +140,7 @@ class TasksController extends BaseController
 
                         if ($doc->file) {
                             if ($doc->upload()) {
+                                $createdFilePaths[] = $doc->path;
                                 if (!$doc->save(false)) {
                                     $flag = false;
                                     break;
@@ -120,14 +153,28 @@ class TasksController extends BaseController
                     }
                 }
 
+                if ($flag && $sourceTask) {
+                    $flag = $model->copyDocumentsFrom($sourceTask, $sourceDocumentIds, $createdFilePaths);
+                }
+
                 if ($flag) {
                     $transaction->commit();
 
                     // Log task creation
                     \common\services\ActionLogService::logEntityCreate($model, \common\models\ActionLog::ENTITY_TASK);
 
+                    if ($sourceTask) {
+                        \common\services\ActionLogService::log(
+                            \common\models\ActionLog::ENTITY_TASK,
+                            $model->id,
+                            'clone',
+                            null,
+                            ['source_task_id' => $sourceTask->id]
+                        );
+                    }
+
                     $success = true;
-                    $message = 'Task created successfully';
+                    $message = $model->is_template ? 'Task template created successfully' : 'Task created successfully';
                 } else {
                     $transaction->rollBack();
                     $message = 'Failed to create task';
@@ -144,13 +191,19 @@ class TasksController extends BaseController
                     'message' => $message,
                 ]);
             } else {
+                foreach ($createdFilePaths as $createdFilePath) {
+                    TasksDocuments::deleteFile($createdFilePath);
+                }
+                
                 return json_encode([
                     'success' => false,
                     'message' => $message,
-                    'tpl' => $this->renderAjax('_form_create', [
+                    'tpl' => $this->renderAjax($model->is_template ? '_form_create_template' : '_form_create', [
                         'model' => $model,
                         'documents' => $documents,
                         'employees' => $employees,
+                        'sourceTask'        => $sourceTask,
+                        'sourceDocumentIds' => $sourceDocumentIds,
                     ])
                 ]);
             }
@@ -158,10 +211,12 @@ class TasksController extends BaseController
 
         // Initial form render
         return json_encode([
-            'tpl' => $this->renderAjax('_form_create', [
+            'tpl' => $this->renderAjax($model->is_template ? '_form_create_template' : '_form_create', [
                 'model' => $model,
                 'documents' => $documents,
                 'employees' => $employees,
+                'sourceTask'        => $sourceTask,
+                'sourceDocumentIds' => $sourceDocumentIds,
             ])
         ]);
     }
@@ -217,7 +272,7 @@ class TasksController extends BaseController
                     if (!empty($deletedDocumentIDs)) {
                         // Get names before deletion for logging
                         $deletedDocuments = TasksDocuments::find()
-                            ->where(['id' => $deletedDocumentIDs])
+                            ->andWhere(['id' => $deletedDocumentIDs])
                             ->all();
 
                         $deletedDocumentNames = array_map(function($doc) {
@@ -282,7 +337,7 @@ class TasksController extends BaseController
                         TasksDocuments::deleteFile($deletedPath);
                     }
 
-                    return $this->redirect(['index']);
+                    return $this->redirect(['index', 'tab' => $model->is_template ? 'templates' : 'tasks']);
                 } else {
                     $transaction->rollBack();
                 }
@@ -337,7 +392,7 @@ class TasksController extends BaseController
 
         Yii::$app->session->setFlash('success', 'Task deleted successfully.');
 
-        return $this->redirect(['index']);
+        return $this->redirect(['index', 'tab' => $model->is_template ? 'templates' : 'tasks']);
     }
 
     /**
@@ -416,10 +471,14 @@ class TasksController extends BaseController
      */
     protected function findModel($id)
     {
-        $model = Task::find()
-            ->where(['id' => $id])
-            ->andWhere(['created_by' => Yii::$app->user->id])
-            ->one();
+        $query = Task::find()->andWhere(['id' => (int) $id]);
+
+        // Same visibility rules as on tasks index page
+        if (!Yii::$app->user->can('super-administrator')) {
+            $query->andWhere(['created_by' => Yii::$app->user->id]);
+        }
+
+        $model = $query->one();
 
         if ($model !== null) {
             return $model;
@@ -450,5 +509,97 @@ class TasksController extends BaseController
         }
 
         return $result;
+    }
+
+    /**
+     * Search tasks for Select2. Pass is_template=1 for templates (clone), 0 for regular tasks (assign).
+     * Visibility is the same as on tasks index page.
+     * @return array JSON response
+     */
+    public function actionSearchTasks()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $q          = trim(Yii::$app->request->get('q', ''));
+        $isTemplate = (int) Yii::$app->request->get('is_template', Task::IS_NOT_TEMPLATE);
+
+        $query = Task::find()
+            ->with(['assignedUser'])
+            ->andWhere(['is_template' => $isTemplate])
+            ->orderBy(['created_at' => SORT_DESC])
+            ->limit(20);
+
+        if (!Yii::$app->user->can('super-administrator')) {
+            $query->andWhere(['created_by' => Yii::$app->user->id]);
+        }
+
+        if ($q !== '') {
+            $query->andWhere([
+                'or',
+                ['like', 'title',   $q],
+                ['like', 'subject', $q],
+            ]);
+        }
+
+        $results = [];
+        foreach ($query->all() as $task) {
+            $results[] = [
+                'id'          => $task->id,
+                'text'        => $task->title,
+                'assignee'    => $task->getAssignedUserName(),
+                'created'     => date('Y-m-d', $task->created_at),
+                'is_training' => (int) $task->is_training === Task::IS_TRAINING,
+            ];
+        }
+
+        return ['results' => $results];
+    }
+
+    /**
+     * Get task data for prefill (clone) or preview (assign existing).
+     * @param int $id Task ID
+     * @return array JSON response
+     */
+    public function actionGetTaskData($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $isTemplate = (int) Yii::$app->request->get('is_template', Task::IS_NOT_TEMPLATE);
+        $task       = Task::findVisible($id, $isTemplate);
+
+        if (!$task) {
+            return [
+                'success' => false,
+                'message' => 'Task not found.',
+            ];
+        }
+
+        $documents = [];
+        foreach ($task->documents as $document) {
+            $documents[] = [
+                'id'   => $document->id,
+                'name' => $document->getFileName(),
+                'url'  => $document->getUrl(),
+                'type' => $document->getPreviewType(),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'task'    => [
+                'id'            => $task->id,
+                'title'         => $task->title,
+                'subject'       => $task->subject,
+                'description'   => $task->description,
+                'priority'      => $task->priority,
+                'priority_name' => $task->getPriorityName(),
+                'status'        => $task->status,
+                'status_name'   => $task->getStatusName(),
+                'due_date'      => $task->due_date_formatted,
+                'assigned_to'   => $task->assigned_to,
+                'assignee'      => $task->getAssignedUserName(),
+            ],
+            'documents' => $documents,
+        ];
     }
 }

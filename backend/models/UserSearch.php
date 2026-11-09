@@ -137,6 +137,10 @@ class UserSearch extends User
                     'asc' => ['user.last_name' => SORT_ASC],
                     'desc' => ['user.last_name' => SORT_DESC],
                 ],
+                'full_name' => [
+                    'asc'  => ['user.first_name' => SORT_ASC,  'user.last_name' => SORT_ASC],
+                    'desc' => ['user.first_name' => SORT_DESC, 'user.last_name' => SORT_DESC],
+                ],
                 'email' => [
                     'asc' => ['user.email' => SORT_ASC],
                     'desc' => ['user.email' => SORT_DESC],

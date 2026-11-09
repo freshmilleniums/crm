@@ -72,17 +72,14 @@ $css = "
     font-size: 14px !important;
 }
 /* Comment cell */
-.comment-cell { min-width: 130px; }
+.comment-cell { min-width: 220px; }
 .comment-cell .comment-text {
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    display: inline-block;
-    vertical-align: middle;
+    display: block;
     font-size: 12px;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
-.comment-cell .comment-edit textarea { font-size: 12px; min-width: 140px; }
+.comment-cell .comment-edit textarea { font-size: 12px; min-width: 210px; }
 .comment-cell .btn-link { font-size: 11px; padding: 0; }
 /* Last template cell */
 .last-template-cell {
@@ -1228,13 +1225,24 @@ $this->registerJs($scriptExtra, \yii\web\View::POS_END);
                                                         : [],
                                                 ],
                                                 [
-                                                    'attribute'      => 'first_name',
-                                                    'headerOptions'  => $tab['role'] === 'employee' ? ['style' => 'width:90px;'] : [],
-                                                    'contentOptions' => $tab['role'] === 'employee'
-                                                        ? ['style' => 'max-width:80px; word-break:break-word; overflow-wrap:break-word;']
-                                                        : [],
+                                                    'attribute'      => 'full_name',
+                                                    'label'          => 'Name',
+                                                    'value'          => fn($model) => $model->getFullName(),
+                                                    'headerOptions'  => ['style' => 'width:160px;'],
+                                                    'contentOptions' => ['style' => 'max-width:150px; word-break:break-word; overflow-wrap:break-word;'],
+                                                    'filter'         => !empty($tab['filterModel'])
+                                                        ? Html::activeInput('text', $tab['filterModel'], 'q', ['class' => 'form-control', 'placeholder' => ''])
+                                                        : '',
+                                                    'visible'        => $tab['role'] === 'employee',
                                                 ],
-                                                'last_name',
+                                                [
+                                                    'attribute' => 'first_name',
+                                                    'visible'   => $tab['role'] !== 'employee',
+                                                ],
+                                                [
+                                                    'attribute' => 'last_name',
+                                                    'visible'   => $tab['role'] !== 'employee',
+                                                ],
                                                 [
                                                     'attribute'      => 'phone_number',
                                                     'headerOptions'  => $tab['role'] === 'employee' ? ['style' => 'width:100px;'] : [],
@@ -1371,9 +1379,10 @@ $this->registerJs($scriptExtra, \yii\web\View::POS_END);
                                                     },
                                                 ],
                                                 [
-                                                    'label'   => 'Comment',
-                                                    'format'  => 'raw',
-                                                    'visible' => $tab['role'] === 'employee' && !in_array('employee', $currentUserRoles),
+                                                    'label'         => 'Comment',
+                                                    'format'        => 'raw',
+                                                    'headerOptions' => ['style' => 'width:240px;'],
+                                                    'visible'       => $tab['role'] === 'employee' && !in_array('employee', $currentUserRoles),
                                                     'value'   => function($model) use ($tab) {
                                                         $comments = $tab['comments'][$model->id] ?? [];
 

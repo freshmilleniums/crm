@@ -32,6 +32,13 @@ $this->params['breadcrumbs'][] = $this->title;
                             'disabled' => true
                         ]) ?>
                     <?php endif; ?>
+
+                    <?php if (Yii::$app->user->can('sendInvestorEmail')): ?>
+                        <?= Html::a('Send Email from Investor', '#', [
+                            'class' => 'btn btn-success ml-2',
+                            'id' => 'send-investor-email-btn'
+                        ]) ?>
+                    <?php endif; ?>
                 </div>
 
                 <?= GridView::widget([
@@ -203,6 +210,7 @@ $updateUrl = Url::to(['update']);
 $createUrl = Url::to(['create-ajax']);
 $assignEmployeesUrl = Url::to(['assign-employees']);
 $bulkAssignUrl = Url::to(['bulk-assign-employee']);
+$sendEmailAjaxUrl = Url::to(['send-email-ajax']);
 
 $this->registerJs("
 var selectedInvestors = [];
@@ -647,6 +655,33 @@ $(document).on('submit', '#bulk-assign-form', function(e) {
         }
     });
 });
+
+$(document).on('click', '#send-investor-email-btn', function(e) {
+    e.preventDefault();
+
+    var modal = $('#investorModal');
+    var modalBody = modal.find('.modal-body');
+    var modalTitle = modal.find('.modal-title');
+
+    modalTitle.text('Send Email from Investor');
+    modalBody.html('<div class=\"text-center\"><div class=\"spinner-border\" role=\"status\"><span class=\"sr-only\">Loading...</span></div></div>');
+    modal.modal('show');
+
+    $.ajax({
+        url: '$sendEmailAjaxUrl',
+        type: 'GET',
+        success: function(response) {
+            response = JSON.parse(response);
+            if (typeof response.tpl != 'undefined') {
+                modalBody.html(response.tpl);
+            }
+        },
+        error: function() {
+            modalBody.html('<div class=\"alert alert-danger\">Failed to load form</div>');
+        }
+    });
+});
+
 
 // Cancel action (close expandable row)
 $(document).on('click', '.cancel-action', function(e) {
