@@ -229,6 +229,11 @@ class Task extends \yii\db\ActiveRecord
         return $query;
     }
 
+    public static function findGlobal(): \yii\db\ActiveQuery
+    {
+        return parent::find();
+    }
+
     /**
      */
     public function beforeSave($insert)

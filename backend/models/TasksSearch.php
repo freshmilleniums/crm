@@ -30,7 +30,7 @@ class TasksSearch extends Task
      */
     public function search($params)
     {
-        $query = Task::find();
+        $query = Task::findGlobal();
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,

@@ -50,7 +50,7 @@ class UserSearch extends User
      */
     public function search($params, $formName = null)
     {
-        $query = User::find();
+        $query = User::findGlobal();
 
         // add conditions that should always apply here
 

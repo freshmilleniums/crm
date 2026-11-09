@@ -157,6 +157,11 @@ class User extends \common\models\User
         ];
     }
 
+    public static function findGlobal(): \yii\db\ActiveQuery
+    {
+        return parent::find();
+    }
+
     /**
      * Get all substatus labels
      * @return array

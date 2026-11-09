@@ -34,7 +34,7 @@ class InvestorsSearch extends Investor
      */
     public function search($params)
     {
-        $query = Investor::find()
+        $query = Investor::findGlobal()
             ->select([
                 'investors.*',
                 'employees_count' => new Expression(
