@@ -18,7 +18,8 @@ use backend\models\ChatMessageReadStatus;
         <?php if (
             Yii::$app->user->can('phone-operator') ||
             Yii::$app->user->can('administrator') ||
-            Yii::$app->user->can('super-administrator')
+            Yii::$app->user->can('super-administrator')||
+            Yii::$app->user->can('email-task-operator')
         ): ?>
             <li class="nav-item">
                 <a href="<?= Url::to(['/call-center']) ?>" class="nav-link">
@@ -79,6 +80,59 @@ use backend\models\ChatMessageReadStatus;
             </li>
         <?php endif; ?>
 
+        <?php if (Yii::$app->user->can('employee')): ?>
+            <?php $substatus = Yii::$app->user->identity->substatus; ?>
+
+            <?php if (
+                $substatus == \backend\models\User::SUBSTATUS_CONTRACT_SENT ||
+                Yii::$app->user->identity->contract_pdf_path
+            ): ?>
+                <li class="nav-item">
+                    <a href="<?= Url::to(['/personal/contract']) ?>" class="nav-link">
+                        <i class="fas fa-file-signature mr-1"></i> Contract
+                    </a>
+                </li>
+            <?php endif; ?>
+
+            <?php if (in_array($substatus, [
+                \backend\models\User::SUBSTATUS_TRAINING_IN_PROGRESS,
+                \backend\models\User::SUBSTATUS_FINAL_ASSIGNMENT,
+                \backend\models\User::SUBSTATUS_UNCOMPLETED_TASK,
+            ])): ?>
+                <li class="nav-item">
+                    <a href="<?= Url::to(['/personal/training']) ?>" class="nav-link">
+                        <i class="fas fa-graduation-cap mr-1"></i> Training
+                    </a>
+                </li>
+            <?php endif; ?>
+
+            <?php if (in_array($substatus, [
+                \backend\models\User::SUBSTATUS_TRAINING_IN_PROGRESS,
+                \backend\models\User::SUBSTATUS_FINAL_ASSIGNMENT,
+                \backend\models\User::SUBSTATUS_UNCOMPLETED_TASK,
+                \backend\models\User::SUBSTATUS_ACTIVE_EMPLOYEE,
+            ])): ?>
+                <li class="nav-item">
+                    <a href="<?= Url::to(['/personal/tasks']) ?>" class="nav-link">
+                        <i class="fas fa-tasks mr-1"></i> My Tasks
+                    </a>
+                </li>
+            <?php endif; ?>
+
+            <?php if ($substatus == \backend\models\User::SUBSTATUS_ACTIVE_EMPLOYEE): ?>
+                <li class="nav-item">
+                    <a href="<?= Url::to(['/personal/projects']) ?>" class="nav-link">
+                        <i class="fas fa-project-diagram mr-1"></i> My Projects
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="<?= Url::to(['/personal/investors']) ?>" class="nav-link">
+                        <i class="fas fa-hand-holding-usd mr-1"></i> My Investors
+                    </a>
+                </li>
+            <?php endif; ?>
+        <?php endif; ?>
+
         <li class="nav-item">
             <?php $unreadEmailCount = \common\services\EmailUnreadService::getUnreadCount(Yii::$app->user->id); ?>
             <a href="<?= Url::to(['/email']) ?>" class="nav-link">
@@ -115,6 +169,9 @@ use backend\models\ChatMessageReadStatus;
                         </a>
                         <a href="<?= Url::to(['/reminders']) ?>" class="dropdown-item">
                             <i class="fas fa-bell mr-2"></i> Reminders
+                        </a>
+                        <a href="<?= Url::to(['/settings/contract-text']) ?>" class="dropdown-item">
+                            <i class="fas fa-file-contract mr-2"></i> Contract Settings
                         </a>
                         <div class="dropdown-divider"></div>
                     <?php endif; ?>

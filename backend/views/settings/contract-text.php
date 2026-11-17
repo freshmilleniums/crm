@@ -62,15 +62,18 @@ $this->params['breadcrumbs'][] = $this->title;
                 <div class="alert alert-secondary">
                     <h5>Template Information:</h5>
                     <p><strong>How to use templates:</strong> Click the "Templates" button in the TinyMCE toolbar, select the desired template and it will be inserted into the text.</p>
-                    <p><strong>Variables:</strong> Use variables in double curly braces (e.g., {{first_name}}) for automatic value replacement when generating documents.</p>
+                    <p><strong>Variables:</strong> Use variables in double curly braces (e.g., {{employee_first_name}}) for automatic value replacement when generating documents.</p>
                     <p><strong>Available variables:</strong></p>
                     <ul>
-                        <li>{{courier_first_name}} – First name of the courier</li>
-                        <li>{{courier_last_name}} – Last name of the courier</li>
-                        <li>{{courier_address}} – Address of the courier</li>
+                        <li>{{employee_first_name}} – First name of the employee</li>
+                        <li>{{employee_last_name}} – Last name of the employee</li>
+                        <li>{{employee_address}} – Address of the employee</li>
                         <li>{{company_name}} – Company name</li>
                         <li>{{company_address}} – Company address</li>
-                        <li>{{сurrent_date}} – Current date</li>
+                        <li>{{company_state}} – Company state</li>
+                        <li>{{hr_first_name}} – HR first name</li>
+                        <li>{{hr_last_name}} – HR last name</li>
+                        <li>{{current_date}} – Current date</li>
                     </ul>
                 </div>
             </div>

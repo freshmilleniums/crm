@@ -44,6 +44,7 @@ class ChatController extends BaseController
                         'create-chat' => ['POST'],
                         'generate-websocket-token' => ['POST'],
                         'get-unread-count' => ['GET'],
+                        'search-chats' => ['GET'],
                     ],
                 ],
             ]
@@ -1344,5 +1345,130 @@ class ChatController extends BaseController
                 Yii::info("User {$userId} added as participant to employee chat {$chatId}", __METHOD__);
             }
         }
+    }
+
+    /**
+     * Search chats by title, participant name or email (partial match, case-insensitive)
+     */
+    public function actionSearchChats()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $query       = trim(Yii::$app->request->get('q', ''));
+        $currentUser = Yii::$app->user->identity;
+
+        if (!$currentUser) {
+            return ['success' => false, 'chats' => []];
+        }
+
+        $chats    = $this->getUserChats($currentUser);
+        $filtered = [];
+
+        if ($query === '') {
+            $filtered = $chats;
+        } else {
+            $queryWords = preg_split('/\s+/u', mb_strtolower($query), -1, PREG_SPLIT_NO_EMPTY);
+            foreach ($chats as $chat) {
+                if ($this->chatMatchesSearch($chat, $currentUser->id, $queryWords)) {
+                    $filtered[] = $chat;
+                }
+            }
+        }
+
+        $result = [];
+        foreach ($filtered as $chat) {
+            $result[] = $this->formatChatForResponse($chat);
+        }
+
+        return ['success' => true, 'chats' => $result];
+    }
+
+    /**
+     * Check if chat matches search words (by title or by other participant name/email)
+     * @param Chat $chat
+     * @param int $currentUserId
+     * @param array $queryWords
+     * @return bool
+     */
+    protected function chatMatchesSearch(Chat $chat, $currentUserId, array $queryWords)
+    {
+        // Check chat title
+        $title = mb_strtolower($chat->title ?: Chat::getDefaultChatTitle($chat));
+        $titleMatches = true;
+        foreach ($queryWords as $word) {
+            if (mb_strpos($title, $word) === false) {
+                $titleMatches = false;
+                break;
+            }
+        }
+        if ($titleMatches) {
+            return true;
+        }
+
+        // Collect other participants (and employee of support chat)
+        $participants = [];
+        foreach ($chat->activeParticipants as $participant) {
+            if ($participant->id != $currentUserId) {
+                $participants[$participant->id] = $participant;
+            }
+        }
+        if ($chat->employee && $chat->employee->id != $currentUserId) {
+            $participants[$chat->employee->id] = $chat->employee;
+        }
+
+        // All words must be found in one participant (name + email)
+        foreach ($participants as $participant) {
+            $participantText = mb_strtolower(trim($participant->first_name . ' ' . $participant->last_name . ' ' . $participant->email));
+            $participantMatches = true;
+            foreach ($queryWords as $word) {
+                if (mb_strpos($participantText, $word) === false) {
+                    $participantMatches = false;
+                    break;
+                }
+            }
+            if ($participantMatches) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Format chat data for AJAX response
+     */
+    protected function formatChatForResponse(Chat $chat): array
+    {
+        $lastMessageText   = '';
+        $lastMessageSender = '';
+        $lastMessageTime   = '';
+        $hasAttachments    = false;
+        $attachmentsCount  = 0;
+
+        if ($chat->lastMessage) {
+            $hasAttachments    = $chat->lastMessage->hasAttachments();
+            $attachmentsCount  = $chat->lastMessage->getAttachmentsCount();
+            $lastMessageText   = mb_substr($chat->lastMessage->message_text, 0, 50);
+            $lastMessageSender = $chat->lastMessage->sender
+                ? trim($chat->lastMessage->sender->first_name . ' ' . $chat->lastMessage->sender->last_name)
+                : 'Support';
+            $lastMessageTime   = $chat->last_message_at
+                ? Yii::$app->formatter->asRelativeTime($chat->last_message_at)
+                : '';
+        }
+
+        return [
+            'id'                => $chat->id,
+            'title'             => $chat->title ?: Chat::getDefaultChatTitle($chat),
+            'icon'              => Chat::getChatIcon($chat->type),
+            'type'              => $chat->type,
+            'unreadCount'       => ChatMessageReadStatus::getUnreadCount($chat->id),
+            'lastMessageText'   => $lastMessageText,
+            'lastMessageSender' => $lastMessageSender,
+            'lastMessageTime'   => $lastMessageTime,
+            'hasAttachments'    => $hasAttachments,
+            'attachmentsCount'  => $attachmentsCount,
+            'url'               => \yii\helpers\Url::to(['chat/index', 'id' => $chat->id]),
+        ];
     }
 }

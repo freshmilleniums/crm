@@ -38,12 +38,15 @@ class TinyMceWidget extends InputWidget
      * @var array Contract templates
      */
     public $contractTemplates = [
-        'courier_first_name_block' => '{{courier_first_name}}',
-        'courier_last_name_block' => '{{courier_last_name}}',
-        'courier_address_block' => '{{courier_address}}',
+        'employee_first_name_block' => '{{employee_first_name}}',
+        'employee_last_name_block' => '{{employee_last_name}}',
+        'employee_address_block' => '{{employee_address}}',
         'company_name_block' => '{{company_name}}',
         'company_address_block' => '{{company_address}}',
-        'current_date_block' => '{{сurrent_date}}',
+        'company_state_block' => '{{company_state}}',
+        'hr_first_name_block' => '{{hr_first_name}}',
+        'hr_last_name_block' => '{{hr_last_name}}',
+        'current_date_block' => '{{current_date}}',
     ];
 
 
@@ -182,32 +185,32 @@ class TinyMceWidget extends InputWidget
                         var templates = $templates;
                         var items = [];
     
-                        if (templates.courier_first_name_block) {
+                         if (templates.employee_first_name_block) {
                             items.push({
                                 type: 'menuitem',
-                                text: 'Insert Courier First Name',
+                                text: 'Insert Employee First Name',
                                 onAction: function() {
-                                    editor.insertContent(templates.courier_first_name_block);
+                                    editor.insertContent(templates.employee_first_name_block);
                                 }
                             });
                         }
     
-                        if (templates.courier_last_name_block) {
+                        if (templates.employee_last_name_block) {
                             items.push({
                                 type: 'menuitem',
-                                text: 'Insert Courier Last Name',
+                                text: 'Insert Employee Last Name',
                                 onAction: function() {
-                                    editor.insertContent(templates.courier_last_name_block);
+                                    editor.insertContent(templates.employee_last_name_block);
                                 }
                             });
                         }
 
-                        if (templates.courier_address_block) {
+                        if (templates.employee_address_block) {
                             items.push({
                                 type: 'menuitem',
-                                text: 'Insert Courier Address',
+                                text: 'Insert Employee Address',
                                 onAction: function() {
-                                    editor.insertContent(templates.courier_address_block);
+                                    editor.insertContent(templates.employee_address_block);
                                 }
                             });
                         }
@@ -222,12 +225,42 @@ class TinyMceWidget extends InputWidget
                             });
                         }
 
-                        if (templates.company_address_block) {
+if (templates.company_address_block) {
                             items.push({
                                 type: 'menuitem',
                                 text: 'Insert Company Address',
                                 onAction: function() {
                                     editor.insertContent(templates.company_address_block);
+                                }
+                            });
+                        }
+
+                        if (templates.company_state_block) {
+                            items.push({
+                                type: 'menuitem',
+                                text: 'Insert Company State',
+                                onAction: function() {
+                                    editor.insertContent(templates.company_state_block);
+                                }
+                            });
+                        }
+
+                        if (templates.hr_first_name_block) {
+                            items.push({
+                                type: 'menuitem',
+                                text: 'Insert HR First Name',
+                                onAction: function() {
+                                    editor.insertContent(templates.hr_first_name_block);
+                                }
+                            });
+                        }
+
+                        if (templates.hr_last_name_block) {
+                            items.push({
+                                type: 'menuitem',
+                                text: 'Insert HR Last Name',
+                                onAction: function() {
+                                    editor.insertContent(templates.hr_last_name_block);
                                 }
                             });
                         }

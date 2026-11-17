@@ -21,7 +21,10 @@ $this->title = 'Chat System';
 $this->params['breadcrumbs'][] = $this->title;
 
 // Register CSS file
-$this->registerCssFile('@web/css/chat.css', ['depends' => [\yii\web\YiiAsset::class]]);
+$this->registerCssFile(
+    '@web/css/chat.css?v=' . filemtime(Yii::getAlias('@webroot/css/chat.css')),
+    ['depends' => [\yii\web\YiiAsset::class]]
+);
 ?>
 
     <div class="container-fluid">
@@ -49,7 +52,28 @@ $this->registerCssFile('@web/css/chat.css', ['depends' => [\yii\web\YiiAsset::cl
                             <?php endif;*/ ?>
                         </div>
 
-                        <div class="chat-list-container">
+                        <div class="chat-search-bar">
+                            <div class="input-group input-group-sm">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text bg-transparent border-right-0">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                </div>
+                                <input type="text"
+                                       id="chat-sidebar-search"
+                                       class="form-control border-left-0"
+                                       placeholder="Search chats..."
+                                       maxlength="100"
+                                       autocomplete="off">
+                                <div class="input-group-append" id="chat-search-clear-btn" style="display:none; cursor:pointer;">
+                                    <span class="input-group-text bg-transparent border-left-0">
+                                        <i class="fas fa-times text-muted"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="chat-list-container" id="chat-list-container">
                             <?php if (!$adminChat && !Yii::$app->user->can('administrator') && !Yii::$app->user->can('super-administrator')): ?>
                                 <a href="<?= Url::to(['chat/admin-chat']) ?>" class="chat-item admin-chat-item" style="background: #f8f9fa; border-bottom: 2px solid #6c757d;">
                                     <div class="chat-header-info">
@@ -163,6 +187,7 @@ $chatData = [
         'addParticipants' => Url::to(['chat/add-participants']),
         'removeParticipant' => Url::to(['chat/remove-participant']),
         'searchMessages' => Url::to(['/chat/search-messages']),
+        'searchChats'    => Url::to(['chat/search-chats']),
     ],
     'chatTypes' => [
         'employeePrivate' => Chat::TYPE_USER_PRIVATE,
@@ -378,5 +403,109 @@ $(document).ready(function() {
     }
     
     window.showNotification = showNotification;
+    
+    // ===== Chat sidebar search =====
+    (function () {
+        var searchInput   = document.getElementById(\'chat-sidebar-search\');
+        var clearBtn      = document.getElementById(\'chat-search-clear-btn\');
+        var listContainer = document.getElementById(\'chat-list-container\');
+        var debounceTimer = null;
+
+        if (!searchInput || !listContainer) return;
+
+        function escapeHtml(str) {
+            if (!str) return \'\';
+            return String(str)
+                .replace(/&/g, \'&amp;\')
+                .replace(/</g, \'&lt;\')
+                .replace(/>/g, \'&gt;\')
+                .replace(/"/g, \'&quot;\');
+        }
+
+        function renderChats(chats) {
+            if (!chats.length) {
+                listContainer.innerHTML =
+                    \'<div class="no-chats">\' +
+                    \'<i class="fas fa-search"></i>\' +
+                    \'<h6>No chats found</h6>\' +
+                    \'<p>Try a different name or email</p>\' +
+                    \'</div>\';
+                return;
+            }
+
+            var html = \'\';
+            chats.forEach(function (chat) {
+                var activeClass = (window.chatConfig.selectedChatId === chat.id) ? \' active\' : \'\';
+
+                var badge = chat.unreadCount > 0
+                    ? \'<span class="chat-badge">\' + (chat.unreadCount > 99 ? \'99+\' : chat.unreadCount) + \'</span>\'
+                    : \'\';
+
+                var previewContent = \'\';
+                if (chat.lastMessageSender) {
+                    if (chat.hasAttachments && !chat.lastMessageText) {
+                        previewContent = \'<i class="fas fa-paperclip"></i> \' +
+                            chat.attachmentsCount + \' attachment\' + (chat.attachmentsCount > 1 ? \'s\' : \'\');
+                    } else {
+                        previewContent = escapeHtml(chat.lastMessageText) +
+                            (chat.lastMessageText.length >= 50 ? \'...\' : \'\');
+                    }
+                    previewContent = \'<strong>\' + escapeHtml(chat.lastMessageSender) + \':</strong> \' + previewContent;
+                } else {
+                    previewContent = \'<em>No messages yet</em>\';
+                }
+
+                var timeHtml = chat.lastMessageTime
+                    ? \'<span class="chat-time">\' + escapeHtml(chat.lastMessageTime) + \'</span>\'
+                    : \'\';
+
+                html +=
+                    \'<a href="\' + chat.url + \'" class="chat-item\' + activeClass + \'" data-chat-id="\' + chat.id + \'">\' +
+                        \'<div class="chat-header-info">\' +
+                            \'<h6 class="chat-title">\' +
+                                \'<i class="fas fa-\' + escapeHtml(chat.icon) + \'"></i> \' +
+                                escapeHtml(chat.title) +
+                            \'</h6>\' +
+                            timeHtml +
+                        \'</div>\' +
+                        \'<div class="chat-preview">\' + previewContent + \'</div>\' +
+                        badge +
+                    \'</a>\';
+            });
+
+            listContainer.innerHTML = html;
+        }
+
+        function doSearch(q) {
+            if (!window.chatConfig || !window.chatConfig.urls || !window.chatConfig.urls.searchChats) return;
+            $.ajax({
+                url: window.chatConfig.urls.searchChats,
+                type: \'GET\',
+                data: {q: q},
+                dataType: \'json\',
+                success: function (response) {
+                    if (response.success) {
+                        renderChats(response.chats);
+                    }
+                }
+            });
+        }
+
+        searchInput.addEventListener(\'input\', function () {
+            var q = this.value.trim();
+            clearBtn.style.display = q.length ? \'\' : \'none\';
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function () {
+                doSearch(q);
+            }, 300);
+        });
+
+        clearBtn.addEventListener(\'click\', function () {
+            searchInput.value = \'\';
+            clearBtn.style.display = \'none\';
+            searchInput.focus();
+            doSearch(\'\');
+        });
+    })();
 });
 ', \yii\web\View::POS_READY);

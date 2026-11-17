@@ -18,6 +18,7 @@ $quickSearchUrl    = Url::to(['quick-search']);
 $assignProjectUrl     = Url::to(['projects/assign-to-employees']);
 $saveCommentUrl       = Url::to(['save-comment']);
 $templateHistoryUrl   = Url::to(['template-history']);
+$changeStatusUrl      = Url::to(['inline-change-status']);
 
 $css = "
 .table-danger-soft {
@@ -86,6 +87,13 @@ $css = "
     cursor: pointer;
     text-decoration: underline dotted;
     font-size: 12px;
+}
+/* Inline status select */
+.employee-table .substatus-select {
+    font-size: 12px !important;
+    height: auto;
+    padding: 2px 4px;
+    min-width: 120px;
 }
 ";
 
@@ -1101,6 +1109,62 @@ $scriptExtra = "
     });
 });
 
+// ===== Inline status change =====
+var substatusCellClasses = {
+    '" . \backend\models\User::SUBSTATUS_ACTIVE_EMPLOYEE . "': 'table-success',
+    '" . \backend\models\User::SUBSTATUS_CONTRACT_SENT . "': 'table-warning',
+    '" . \backend\models\User::SUBSTATUS_CONTRACT_REFUSED . "': 'table-danger-soft'
+};
+
+\$(document).on('change', '.substatus-select', function() {
+    var select   = \$(this);
+    var userId   = select.data('user-id');
+    var oldValue = String(select.data('old'));
+    var newValue = String(select.val());
+    var newLabel = select.find('option:selected').text();
+
+    if (newValue === oldValue) {
+        return;
+    }
+
+    if (!confirm('Change status to \"' + newLabel + '\"?')) {
+        select.val(oldValue);
+        return;
+    }
+
+    select.prop('disabled', true);
+
+    \$.ajax({
+        url  : '" . $changeStatusUrl . "',
+        type : 'POST',
+        data : { id: userId, substatus: newValue, _csrf: yii.getCsrfToken() },
+        success: function(response) {
+            response = JSON.parse(response);
+            if (response.success) {
+                toastr.success(response.message);
+                select.data('old', newValue);
+
+                // Update cell highlight
+                var cell = select.closest('td');
+                cell.removeClass('table-success table-warning table-danger-soft');
+                if (substatusCellClasses[newValue]) {
+                    cell.addClass(substatusCellClasses[newValue]);
+                }
+            } else {
+                toastr.error(response.message || 'Failed to update status');
+                select.val(oldValue);
+            }
+        },
+        error: function() {
+            toastr.error('An error occurred while updating status');
+            select.val(oldValue);
+        },
+        complete: function() {
+            select.prop('disabled', false);
+        }
+    });
+});
+
 // ===== Inactive employees toggle =====
 $(document).on('change', '#show-inactive-toggle', function() {
     var url = new URL(window.location.href);
@@ -1270,12 +1334,26 @@ $this->registerJs($scriptExtra, \yii\web\View::POS_END);
                                                 ],
                                                 [
                                                     'attribute' => 'substatus',
+                                                    'format'    => 'raw',
                                                     'value' => function($model) {
-                                                        return $model->getSubstatusLabel();
+                                                        if (!\backend\models\User::canCurrentUserChangeSubstatus()) {
+                                                            return Html::encode($model->getSubstatusLabel());
+                                                        }
+
+                                                        return Html::dropDownList(
+                                                            'substatus_' . $model->id,
+                                                            $model->substatus,
+                                                            $model->getAvailableSubstatusOptions(),
+                                                            [
+                                                                'class'        => 'form-control form-control-sm substatus-select',
+                                                                'data-user-id' => $model->id,
+                                                                'data-old'     => $model->substatus,
+                                                            ]
+                                                        );
                                                     },
                                                     'label' => 'Status',
                                                     'visible' => $tab['role'] === 'employee',
-                                                    'headerOptions' => ['style' => 'width:85px;'],
+                                                    'headerOptions' => ['style' => 'width:130px;'],
                                                     'filter'             => \backend\models\User::getSubstatusLabels(),
                                                    // 'filterInputOptions' => ['class' => 'form-control', 'prompt' => '- All -'],
                                                     'contentOptions' => function($model) {

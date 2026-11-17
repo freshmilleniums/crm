@@ -43,6 +43,8 @@ class User extends \common\models\User
     const SUBSTATUS_ARCHIVED = 10;
     const SUBSTATUS_UNCOMPLETED_TASK = 11;
 
+    private static $_currentUserRoleKey;
+
     //  const SIGN_STYLE_DANCING_SCRIPT = 'Dancing Script';
     const SIGN_STYLE_PACIFICO = 'Pacifico';
     const SIGN_STYLE_GREAT_VIBES = 'Great Vibes';
@@ -398,15 +400,106 @@ class User extends \common\models\User
             self::SUBSTATUS_PRIMARY_CONTACT      => [self::SUBSTATUS_INTERVIEW_COMPLETED, self::SUBSTATUS_CONTRACT_REFUSED, self::SUBSTATUS_ARCHIVED],
             self::SUBSTATUS_INTERVIEW_COMPLETED  => [self::SUBSTATUS_CONTRACT_SENT, self::SUBSTATUS_CONTRACT_REFUSED, self::SUBSTATUS_ARCHIVED],
             self::SUBSTATUS_CONTRACT_SENT        => [self::SUBSTATUS_TRAINING_IN_PROGRESS, self::SUBSTATUS_CONTRACT_REFUSED, self::SUBSTATUS_ARCHIVED],
-            self::SUBSTATUS_TRAINING_IN_PROGRESS => [self::SUBSTATUS_FINAL_ASSIGNMENT, self::SUBSTATUS_ARCHIVED],
+           /* self::SUBSTATUS_TRAINING_IN_PROGRESS => [self::SUBSTATUS_FINAL_ASSIGNMENT, self::SUBSTATUS_ARCHIVED],
             self::SUBSTATUS_FINAL_ASSIGNMENT     => [self::SUBSTATUS_ACTIVE_EMPLOYEE, self::SUBSTATUS_UNCOMPLETED_TASK, self::SUBSTATUS_ARCHIVED],
             self::SUBSTATUS_UNCOMPLETED_TASK     => [self::SUBSTATUS_FINAL_ASSIGNMENT, self::SUBSTATUS_ARCHIVED],
-            self::SUBSTATUS_ACTIVE_EMPLOYEE      => [self::SUBSTATUS_ARCHIVED],
+            self::SUBSTATUS_ACTIVE_EMPLOYEE      => [self::SUBSTATUS_ARCHIVED],*/
+            self::SUBSTATUS_TRAINING_IN_PROGRESS => [self::SUBSTATUS_ARCHIVED],
+            self::SUBSTATUS_UNCOMPLETED_TASK     => [self::SUBSTATUS_ARCHIVED],
         ];
 
         $allowed = $transitions[$this->substatus] ?? [];
 
         return array_intersect_key($all, array_flip($allowed));
+    }
+
+    /**
+     * Get primary role key of the current user (cached per request)
+     * @return string|null
+     */
+    public static function getCurrentUserRoleKey(): ?string
+    {
+        if (self::$_currentUserRoleKey === null) {
+            $roles = Yii::$app->authManager->getRolesByUser(Yii::$app->user->id);
+            self::$_currentUserRoleKey = (string) key($roles);
+        }
+
+        return self::$_currentUserRoleKey !== '' ? self::$_currentUserRoleKey : null;
+    }
+
+    /**
+     * Get roles allowed to change employee substatus from the Users list
+     * @return array
+     */
+    public static function getSubstatusEditorRoles(): array
+    {
+        return ['super-administrator', 'administrator', 'email-task-operator', 'phone-operator'];
+    }
+
+    /**
+     * Get substatuses that phone operators cannot set from the Users list
+     * @return array
+     */
+    public static function getPhoneOperatorRestrictedSubstatuses(): array
+    {
+        return [
+            self::SUBSTATUS_FINAL_ASSIGNMENT,
+            self::SUBSTATUS_ACTIVE_EMPLOYEE,
+        ];
+    }
+
+    /**
+     * Check if current user can change substatuses from the Users list
+     * @return bool
+     */
+    public static function canCurrentUserChangeSubstatus(): bool
+    {
+        return in_array(self::getCurrentUserRoleKey(), self::getSubstatusEditorRoles(), true);
+    }
+
+    /**
+     * Get substatus options for the Users list select (no transition chain)
+     * @return array [substatus => label]
+     */
+    public function getAvailableSubstatusOptions(): array
+    {
+        $all = self::getSubstatusLabels();
+
+        if (self::getCurrentUserRoleKey() !== 'phone-operator') {
+            return $all;
+        }
+
+        $options = array_diff_key($all, array_flip(self::getPhoneOperatorRestrictedSubstatuses()));
+
+        // Keep current status visible in the select even if it is restricted
+        if (!isset($options[$this->substatus]) && isset($all[$this->substatus])) {
+            $options = [$this->substatus => $all[$this->substatus]] + $options;
+        }
+
+        return $options;
+    }
+
+    /**
+     * Check if current user can set the given substatus from the Users list
+     * @param int $substatus
+     * @return bool
+     */
+    public function canCurrentUserSetSubstatus(int $substatus): bool
+    {
+        if (!self::canCurrentUserChangeSubstatus()) {
+            return false;
+        }
+
+        if (!array_key_exists($substatus, self::getSubstatusLabels())) {
+            return false;
+        }
+
+        if (self::getCurrentUserRoleKey() === 'phone-operator'
+            && in_array($substatus, self::getPhoneOperatorRestrictedSubstatuses(), true)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

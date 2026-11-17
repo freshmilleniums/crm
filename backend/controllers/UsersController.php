@@ -41,6 +41,7 @@ class UsersController extends BaseController
                         'assign-existing-investor' => ['POST'],
                         'assign-existing-project' => ['POST'],
                         'save-comment' => ['POST'],
+                        'inline-change-status' => ['POST'],
                     ],
                 ],
             ]
@@ -1489,6 +1490,86 @@ class UsersController extends BaseController
             return Json::encode([
                 'success' => true,
                 'message' => 'Status updated successfully'
+            ]);
+        }
+
+        return Json::encode([
+            'success' => false,
+            'message' => 'Failed to update status: ' . implode(', ', $model->getFirstErrors())
+        ]);
+    }
+
+    /**
+     * Change employee status inline from the Users list (no transition chain).
+     * Phone operators cannot set restricted statuses.
+     * @return string JSON response
+     */
+    public function actionInlineChangeStatus()
+    {
+        if (!User::canCurrentUserChangeSubstatus()) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'Access denied'
+            ]);
+        }
+
+        $id        = (int) Yii::$app->request->post('id');
+        $newStatus = (int) Yii::$app->request->post('substatus');
+
+        if (!$id || !$newStatus) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'Missing required parameters'
+            ]);
+        }
+
+        try {
+            $model = $this->findModel($id);
+        } catch (NotFoundHttpException $e) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'User not found'
+            ]);
+        }
+
+        if ($model->role !== 'employee') {
+            return Json::encode([
+                'success' => false,
+                'message' => 'Status can be changed for employees only'
+            ]);
+        }
+
+        if (!$model->canCurrentUserSetSubstatus($newStatus)) {
+            return Json::encode([
+                'success' => false,
+                'message' => 'You are not allowed to set this status'
+            ]);
+        }
+
+        $oldStatus = (int) $model->substatus;
+
+        if ($oldStatus === $newStatus) {
+            return Json::encode([
+                'success' => true,
+                'message' => 'Status is not changed'
+            ]);
+        }
+
+        $model->substatus = $newStatus;
+
+        // Validate and save only status-related attributes, so incomplete profiles
+        if ($model->save(true, ['substatus', 'substatus_changed_at', 'updated_at'])) {
+            \common\services\ActionLogService::log(
+                \common\models\ActionLog::ENTITY_USER,
+                $model->id,
+                'change_status',
+                ['substatus' => $oldStatus],
+                ['substatus' => $newStatus]
+            );
+
+            return Json::encode([
+                'success' => true,
+                'message' => 'Status updated successfully',
             ]);
         }
 

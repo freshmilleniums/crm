@@ -2359,3 +2359,46 @@
     border-color: rgba(220, 53, 69, 0.8);
     color: white;
 }
+
+/* ========================================
+   CHAT SIDEBAR SEARCH
+   ======================================== */
+.chat-search-bar {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+    background: #f8f9fa;
+}
+
+.chat-search-bar .input-group-text {
+    background: transparent;
+    border-color: #ced4da;
+    font-size: 12px;
+}
+
+.chat-search-bar .form-control {
+    font-size: 13px;
+    border-color: #ced4da;
+    border-left: none;
+}
+
+.chat-search-bar .form-control:focus {
+    box-shadow: none;
+    border-color: #80bdff;
+    border-left: none;
+}
+
+.chat-search-bar #chat-search-clear-btn:hover i {
+    color: #495057 !important;
+}
+
+/* Mobile adjustments for sidebar search */
+@media screen and (max-width: 768px) {
+    .chat-search-bar {
+        padding: 6px 10px;
+    }
+
+    .chat-search-bar .form-control {
+        font-size: 16px; /* prevents iOS zoom */
+    }
+}

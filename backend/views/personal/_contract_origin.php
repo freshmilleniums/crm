@@ -5,7 +5,7 @@ use yii\bootstrap4\ActiveForm;
 /* @var $this yii\web\View */
 /* @var $user \common\models\User */
 
-$this->title = 'Courier contract';
+$this->title = 'Employment contract';
 $this->params['breadcrumbs'][] = $this->title;
 ?>
     <style>
@@ -70,7 +70,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             <div class="contract">
                                 <?= $this->render('_contract_body', ['user' => $user, 'contractText' => $contractText]) ?>
                                 <div class="signature-section">
-                                    <p>By signing below, the Courier agrees to the terms and conditions outlined in this Agreement:</p>
+                                    <p>By signing below, the Employee agrees to the terms and conditions outlined in this Agreement:</p>
                                     <div class="flex" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
                                         <div style="width: 30%; text-align: left;">
                                             <strong>Date:</strong>
@@ -108,7 +108,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
                             <div class="form-group">
                                 <div class="row align-items-end">
-                                    <? /*
+                                    <?php /*
                                     <div class="col-md-4">
                                         <?= $form->field($user, 'sign_signature_style')->dropDownList(
                                             \backend\models\User::getSignatureStyles(),
@@ -127,7 +127,7 @@ $this->params['breadcrumbs'][] = $this->title;
                                     <div class="col-md-4">
                                         <label for="signature-preview" class="form-label">Preview:</label>
                                         <div id="signature-preview" class="border p-3 bg-light" style="font-family: <?=$user->sign_signature_style?>;font-size: 24px; min-height: 60px; border-radius: 5px;">
-                                            <?//= Html::encode($user->first_name . ' ' . $user->last_name) ?>
+                                            <?php //= Html::encode($user->first_name . ' ' . $user->last_name) ?>
                                         </div>
                                     </div>
                                     <div class="col-md-4">

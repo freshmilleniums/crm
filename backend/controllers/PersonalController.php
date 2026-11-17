@@ -18,6 +18,11 @@ use backend\models\TrainingModuleQuestion;
 use backend\models\TrainingQuestionOption;
 use backend\models\UserTrainingProgress;
 use backend\models\UserModuleAnswer;
+use common\models\Settings;
+use yii\helpers\Html;
+use yii\helpers\FileHelper;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 
 /**
  * Personal controller for employee personal area
@@ -650,5 +655,269 @@ class PersonalController extends BaseController
             return $model;
         }
         throw new NotFoundHttpException('The requested module does not exist.');
+    }
+
+    public function actionContract()
+    {
+        $userId = Yii::$app->user->id;
+        $user = User::findOne($userId);
+        $user->scenario = 'sign_contract';
+        $user->sign_signature_style = User::SIGN_STYLE_PACIFICO;
+
+        // Contract is available only in "Contract Sent" substatus or when already signed
+        if ($user->substatus != User::SUBSTATUS_CONTRACT_SENT && !$user->contract_pdf_path) {
+            Yii::$app->session->setFlash('warning', 'Contract is not available yet.');
+            return $this->redirect(['/site/index']);
+        }
+
+        // Get contract text from settings
+        $contractText = Settings::getContractText();
+
+        $company = \common\models\Companies::findOne(\Yii::$app->params['company_id'] ?? null);
+
+        // Replace variables with actual user data
+        $variables = [
+            '{{employee_first_name}}' => Html::encode($user->first_name ?? ''),
+            '{{employee_last_name}}' => Html::encode($user->last_name ?? ''),
+            '{{employee_address}}' => Html::encode($user->address ?? ''),
+            '{{current_date}}' => date('m/d/Y'),
+            '{{company_name}}'       => Html::encode($company->name ?? ''),
+            '{{company_address}}'    => Html::encode($company->company_address ?? ''),
+            '{{company_state}}'      => Html::encode($company->company_state ?? ''),
+            '{{hr_first_name}}'      => Html::encode($company->hr_first_name ?? ''),
+            '{{hr_last_name}}'       => Html::encode($company->hr_last_name ?? ''),
+        ];
+
+        $processedContractText = str_replace(array_keys($variables), array_values($variables), $contractText);
+
+        if (!$user->sign_signature_date && $user->load(Yii::$app->request->post())) {
+            $user->sign_signature_date = date('Y-m-d');
+            $user->substatus = User::SUBSTATUS_TRAINING_IN_PROGRESS;
+            if ($user->save()) {
+                $this->generateAndSaveContractPdf($user);
+                Yii::$app->session->setFlash('success', 'Contract signed successfully!');
+                try {
+                    $notificationService = new \common\services\NotificationService();
+                    $notificationService->sendContractSignedNotification($user->id);
+                } catch (\Exception $e) {
+                    Yii::error('Failed to send contract signed notification: ' . $e->getMessage());
+                }
+                return $this->redirect(['contract']);
+            }
+        }
+
+        return $this->render('_contract_origin', [
+            'user' => $user,
+            'contractText' => $processedContractText,
+        ]);
+    }
+
+    private function generateAndSaveContractPdf($user)
+    {
+        try {
+            $options = new Options();
+            $options->set('isRemoteEnabled', TRUE);
+            $options->set('fontDir', Yii::getAlias('@webroot/fonts'));
+            $options->set('fontCache', Yii::getAlias('@webroot/fonts/cache'));
+            $options->set('defaultFont', 'Arial');
+
+            $dompdf = new Dompdf($options);
+
+            $signatureBase64 = null;
+            if ($user->sign_signature_text && $user->sign_signature_style) {
+                $signatureBase64 = $this->generateSignatureImage(
+                    $user->sign_signature_text,
+                    $user->sign_signature_style
+                );
+            }
+
+            // Get contract text from settings
+            $contractText = Settings::getContractText();
+
+            $company = \common\models\Companies::findOne(\Yii::$app->params['company_id'] ?? null);
+
+            // Replace variables with actual user data
+            $variables = [
+                '{{employee_first_name}}' => Html::encode($user->first_name ?? ''),
+                '{{employee_last_name}}' => Html::encode($user->last_name ?? ''),
+                '{{employee_address}}' => Html::encode($user->address ?? ''),
+                '{{current_date}}' => date('m/d/Y'),
+                '{{company_name}}'       => Html::encode($company->name ?? ''),
+                '{{company_address}}'    => Html::encode($company->company_address ?? ''),
+                '{{company_state}}'      => Html::encode($company->company_state ?? ''),
+                '{{hr_first_name}}'      => Html::encode($company->hr_first_name ?? ''),
+                '{{hr_last_name}}'       => Html::encode($company->hr_last_name ?? ''),
+            ];
+
+            $processedContractText = str_replace(array_keys($variables), array_values($variables), $contractText);
+
+            $content = $this->renderPartial('_contract', [
+                'user' => $user,
+                'contractText' => $processedContractText,
+                'signatureBase64' => $signatureBase64,
+            ]);
+
+            $dompdf->loadHtml($content);
+            $dompdf->setPaper('A4', 'portrait');
+            $dompdf->render();
+
+            $originalFileName = 'contract_' . $user->id . '_' . time();
+            $fileNewName = md5($originalFileName . time());
+
+            $fileDir = 'contract/' . $fileNewName[0] . '/' . $fileNewName[1] . $fileNewName[2] . '/';
+
+            $path = Yii::$app->params['uploadPath'] . $fileDir;
+
+            if (!is_dir($path)) {
+                FileHelper::createDirectory($path, 0755, true);
+            }
+
+            $fileName = 'contract_' . $fileNewName . '.pdf';
+            $filePath = $path . $fileName;
+
+            $relativePath = $fileDir . $fileName;
+
+            file_put_contents($filePath, $dompdf->output());
+
+            if (!file_exists($filePath)) {
+                throw new \Exception("Failed to save PDF file: " . $filePath);
+            }
+
+            $user->contract_pdf_path = $relativePath;
+            if (!$user->save(false)) {
+                throw new \Exception("Failed to save contract path to database");
+            }
+
+            Yii::info("Contract PDF saved: " . $filePath, __METHOD__);
+            return true;
+
+        } catch (\Exception $e) {
+            Yii::error("Error generating contract PDF: " . $e->getMessage(), __METHOD__);
+            Yii::$app->session->setFlash('warning', 'Contract signed but PDF generation failed.');
+            return false;
+        }
+    }
+
+    private function generateSignatureImage($text, $fontStyle)
+    {
+        try {
+            // Increase dimensions for better quality (will scale down later)
+            $scale = 2; // Scale factor for anti-aliasing
+            $width = 300 * $scale;
+            $height = 80 * $scale;
+
+            // Create a high-resolution transparent image
+            $image = imagecreatetruecolor($width, $height);
+
+            // Enable alpha channel for transparency
+            imagealphablending($image, false);
+            imagesavealpha($image, true);
+
+            // Transparent background
+            $transparent = imagecolorallocatealpha($image, 255, 255, 255, 127);
+            imagefill($image, 0, 0, $transparent);
+
+            // Text color (blue, similar to original)
+            $textColor = imagecolorallocate($image, 0, 102, 204); // #0066cc
+
+            // Define font path
+            $fontsPath = Yii::getAlias('@webroot/fonts/');
+            $fontFiles = [
+                'Alex Brush' => 'AlexBrush-Regular.ttf',
+                'Allura' => 'Allura-Regular.ttf',
+                'Great Vibes' => 'GreatVibes-Regular.ttf',
+                'Pacifico' => 'Pacifico-Regular.ttf'
+            ];
+
+            $fontFile = $fontsPath . ($fontFiles[$fontStyle] ?? $fontFiles['Alex Brush']);
+
+            // Check if font file exists
+            if (!file_exists($fontFile)) {
+                throw new \Exception("Font file not found: {$fontFile}");
+            }
+
+            // Increase font size for high resolution
+            $fontSize = 24 * $scale;
+
+            // Get text bounding box for centering
+            $bbox = imagettfbbox($fontSize, 0, $fontFile, $text);
+            $textWidth = $bbox[4] - $bbox[0];
+            $textHeight = $bbox[1] - $bbox[7];
+
+            // Calculate position for centering and slightly shift down
+            $x = ($width - $textWidth) / 2;
+            $y = ($height - $textHeight) / 2 + $textHeight + (20 * $scale); // Add 20px (scaled)
+
+            // Render text onto the image
+            imagettftext($image, $fontSize, 0, $x, $y, $textColor, $fontFile, $text);
+
+            // Downscale image for anti-aliasing
+            $finalImage = imagecreatetruecolor(300, 80);
+            imagealphablending($finalImage, false);
+            imagesavealpha($finalImage, true);
+
+            $finalTransparent = imagecolorallocatealpha($finalImage, 255, 255, 255, 127);
+            imagefill($finalImage, 0, 0, $finalTransparent);
+
+            // Resample with high quality
+            imagecopyresampled($finalImage, $image, 0, 0, 0, 0, 300, 80, $width, $height);
+
+            // Create buffer and encode to PNG
+            ob_start();
+            imagepng($finalImage, null, 9); // Max compression
+            $imageData = ob_get_contents();
+            ob_end_clean();
+
+            // Free memory
+            imagedestroy($image);
+            imagedestroy($finalImage);
+
+            Yii::info("Signature image generated for font: {$fontStyle}", __METHOD__);
+
+            // Return Base64-encoded image
+            return base64_encode($imageData);
+
+        } catch (\Exception $e) {
+            Yii::error("Error generating signature image: " . $e->getMessage(), __METHOD__);
+            return null;
+        }
+    }
+
+    public function actionGetContract()
+    {
+        $userId = Yii::$app->user->id;
+        $user = User::findOne($userId);
+
+        if ($user->contract_pdf_path && file_exists(Yii::getAlias('@webroot/uploads/') . $user->contract_pdf_path)) {
+            $filePath = Yii::getAlias('@webroot/uploads/') . $user->contract_pdf_path;
+
+            header('Content-Type: application/pdf');
+            header('Content-Disposition: inline; filename="contract.pdf"');
+            header('Content-Length: ' . filesize($filePath));
+            header('Cache-Control: private, max-age=0, must-revalidate');
+            header('Pragma: public');
+
+            readfile($filePath);
+            exit;
+        }
+
+        throw new NotFoundHttpException('Contract PDF not found.');
+    }
+
+    public function actionViewContractPdf()
+    {
+        $userId = Yii::$app->user->id;
+        $user = User::findOne($userId);
+
+        if (!$user->contract_pdf_path || !file_exists(Yii::getAlias('@webroot/uploads/') . $user->contract_pdf_path)) {
+            throw new NotFoundHttpException('Contract PDF not found.');
+        }
+
+        $filePath = Yii::getAlias('@webroot/uploads/') . $user->contract_pdf_path;
+
+        return Yii::$app->response->sendFile($filePath, 'contract.pdf', [
+            'mimeType' => 'application/pdf',
+            'inline' => true
+        ]);
     }
 }

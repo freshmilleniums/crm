@@ -393,8 +393,8 @@ class UserService
         $userRole = Yii::$app->authManager->getRolesByUser($currentUserId);
         $userRoleKey = key($userRole);
 
-        // Only phone-operator and administrators have access
-        if (!in_array($userRoleKey, ['phone-operator', 'administrator', 'super-administrator'])) {
+        // Only phone-operator, email-task-operator and administrators have access
+        if (!in_array($userRoleKey, ['phone-operator', 'email-task-operator', 'administrator', 'super-administrator'])) {
             return [];
         }
 

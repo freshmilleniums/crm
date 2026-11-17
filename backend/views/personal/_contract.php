@@ -9,7 +9,7 @@ use yii\bootstrap4\Html as Bootstrap4Html;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Courier Agreement</title>
+    <title>Employment Agreement</title>
 
     <style>
         body {
