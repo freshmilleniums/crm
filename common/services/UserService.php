@@ -1033,6 +1033,69 @@ class UserService
     }
 
     /**
+     * Get task manager with least active employees for given company
+     * @param int|null $companyId
+     * @return int|null
+     */
+    protected function getNextTaskManagerId(?int $companyId): ?int
+    {
+        if (!$companyId) {
+            return null;
+        }
+
+        $taskManagerRow = User::find()
+            ->alias('u')
+            ->innerJoin('auth_assignment aa', 'aa.user_id = u.id')
+            ->where([
+                'aa.item_name' => 'email-task-operator',
+                'u.status'     => User::STATUS_ACTIVE,
+                'u.company_id' => $companyId,
+            ])
+            ->leftJoin(
+                'user emp',
+                'emp.task_manager_id = u.id' .
+                ' AND emp.status = ' . User::STATUS_ACTIVE
+            )
+            ->select(['u.id', 'COUNT(emp.id) AS employee_count'])
+            ->groupBy('u.id')
+            ->orderBy(['employee_count' => SORT_ASC, 'u.id' => SORT_ASC])
+            ->asArray()
+            ->one();
+
+        return $taskManagerRow ? (int)$taskManagerRow['id'] : null;
+    }
+
+    /**
+     * Assign task manager to employee via round-robin (least employees per task manager)
+     * @param int $userId
+     * @param int|null $companyId
+     * @return int|null assigned task manager ID
+     */
+    public function assignTaskManagerToEmployee(int $userId, ?int $companyId = null): ?int
+    {
+        $taskManagerId = $this->getNextTaskManagerId($companyId);
+
+        if (!$taskManagerId) {
+            Yii::warning("No active task managers found for company_id={$companyId}", 'assignment');
+            return null;
+        }
+
+        $result = User::updateAll(
+            ['task_manager_id' => $taskManagerId],
+            ['id' => $userId]
+        );
+
+        if (!$result) {
+            Yii::error("Failed to assign task manager {$taskManagerId} to user {$userId}", 'assignment');
+            return null;
+        }
+
+        Yii::info("Task manager {$taskManagerId} assigned to user {$userId} (company_id={$companyId})", 'assignment');
+
+        return $taskManagerId;
+    }
+
+    /**
      * Get last sent template per user
      * @param array $userIds
      * @return array [user_id => UserSentTemplate]

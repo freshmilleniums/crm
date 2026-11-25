@@ -17,6 +17,7 @@ use yii\web\Response;
 use Yii;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use yii\web\UnauthorizedHttpException;
 
 /**
  * ChatController handles admin/operator chat functionality
@@ -237,6 +238,11 @@ class ChatController extends BaseController
                 'success' => false,
                 'message' => 'You are sending messages too quickly. Please wait a moment.'
             ];
+        }
+
+        // Make sure the sender is a participant of the employee chat (admin, super admin, task manager)
+        if ($chat->type === Chat::TYPE_EMPLOYEE) {
+            $this->ensureUserIsParticipant($chat->id, $currentUser->id);
         }
 
         $transaction = Yii::$app->db->beginTransaction();
@@ -544,6 +550,7 @@ class ChatController extends BaseController
             }
         }
 
+        /* Group chats are disabled
         if ($chatType === Chat::TYPE_USER_GROUP) {
             if (count($participantIds) < 1) {
                 return [
@@ -558,7 +565,7 @@ class ChatController extends BaseController
                     'message' => 'Group chat title is required'
                 ];
             }
-        }
+        } */
 
         // Validate that all participants exist and are valid employees
         $validParticipants = User::find()
@@ -664,7 +671,29 @@ class ChatController extends BaseController
                 ]
             ]);
         } elseif (in_array($userRole, ['email-task-operator'])) {
-            $query->andWhere([
+            $query->andWhere($this->getTaskManagerChatCondition($user));
+        } else {
+            $query->andWhere('1=0');
+        }
+        return $query->all();
+    }
+
+    /**
+     * Build access condition for task manager:
+     * employee chats of assigned employees + private chats where he is a participant
+     * @param User $user
+     * @return array
+     */
+    protected function getTaskManagerChatCondition($user)
+    {
+        return [
+            'or',
+            [
+                'and',
+                ['type' => Chat::TYPE_EMPLOYEE],
+                ['in', 'employee_id', User::find()->select('id')->andWhere(['task_manager_id' => $user->id])],
+            ],
+            [
                 'and',
                 ['type' => Chat::TYPE_USER_PRIVATE],
                 ['in', 'id',
@@ -673,11 +702,8 @@ class ChatController extends BaseController
                         ->where(['user_id' => $user->id])
                         ->andWhere(['left_at' => null])
                 ]
-            ]);
-        } else {
-            $query->andWhere('1=0');
-        }
-        return $query->all();
+            ],
+        ];
     }
 
     /**
@@ -717,6 +743,8 @@ class ChatController extends BaseController
                 ['type' => Chat::TYPE_EMPLOYEE],
                 ['employee_id' => $user->id]
             ]);
+        } elseif ($userRole == 'email-task-operator') {
+            $query->andWhere($this->getTaskManagerChatCondition($user));
         } else {
             // Other employees can only access chats where they are participants
             $query->andWhere([
@@ -1176,7 +1204,7 @@ class ChatController extends BaseController
                 'success' => $result,
                 'message' => $result ? 'Messages marked as read' : 'Failed to mark messages as read'
             ];
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             Yii::error('Failed to mark messages as read: ' . $e->getMessage(), __METHOD__);
             return [
                 'success' => false,

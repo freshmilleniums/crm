@@ -12,6 +12,7 @@ use yii\web\Response;
 use yii\helpers\Url;
 use backend\models\User;
 use backend\models\Chat;
+use backend\models\ChatParticipant;
 use common\services\NotificationService;
 use common\services\EmployersDashboardStatisticsService;
 
@@ -242,9 +243,18 @@ class SiteController extends BaseController
                     Yii::error('Failed to assign administrator: ' . $e->getMessage());
                 }
 
+                // Assign task manager via round-robin (least employees per task manager)
+                $taskManagerId = null;
+                try {
+                    $userService = new \common\services\UserService();
+                    $taskManagerId = $userService->assignTaskManagerToEmployee($user->id, Yii::$app->params['company_id'] ?? null);
+                } catch (\Exception $e) {
+                    Yii::error('Failed to assign task manager: ' . $e->getMessage());
+                }
+
                 // Create employee chat after successful registration
                 try {
-                    $this->createEmployeeChat($user);
+                    $this->createEmployeeChat($user, $taskManagerId);
                 } catch (\Exception $e) {
                     Yii::error('Failed to create employee chat: ' . $e->getMessage());
                 }
@@ -277,7 +287,7 @@ class SiteController extends BaseController
      * @param User $user
      * @return Chat|null
      */
-    protected function createEmployeeChat($user)
+    protected function createEmployeeChat($user, $taskManagerId = null)
     {
         $transaction = Yii::$app->db->beginTransaction();
 
@@ -291,6 +301,18 @@ class SiteController extends BaseController
 
             if (!$chat->save()) {
                 throw new \Exception('Failed to create chat: ' . implode(', ', $chat->getFirstErrors()));
+            }
+
+            // Add assigned task manager to the chat
+            if ($taskManagerId) {
+                $participant = new ChatParticipant([
+                    'chat_id' => $chat->id,
+                    'user_id' => $taskManagerId,
+                ]);
+
+                if (!$participant->save()) {
+                    throw new \Exception('Failed to add task manager to chat: ' . implode(', ', $participant->getFirstErrors()));
+                }
             }
 
             $transaction->commit();

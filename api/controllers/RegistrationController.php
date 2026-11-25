@@ -12,6 +12,7 @@ use yii\filters\Cors;
 use yii\web\UnauthorizedHttpException;
 use common\services\NotificationService;
 use backend\models\Chat;
+use backend\models\ChatParticipant;
 use backend\models\User;
 
 /**
@@ -170,8 +171,17 @@ class RegistrationController extends BaseApiController
                 Yii::error('Failed to assign administrator: ' . $e->getMessage());
             }
 
+            // Assign task manager via round-robin (least employees per task manager)
+            $taskManagerId = null;
+            try {
+                $userService = new \common\services\UserService();
+                $taskManagerId = $userService->assignTaskManagerToEmployee($user->id, Yii::$app->params['company_id'] ?? null);
+            } catch (\Exception $e) {
+                Yii::error('Failed to assign task manager: ' . $e->getMessage());
+            }
+
             // Create support chat for the employee
-            $this->createEmployeeChat($user);
+            $this->createEmployeeChat($user, $taskManagerId);
 
             // Send welcome notification
             $this->sendWelcomeNotification($user);
@@ -323,9 +333,10 @@ class RegistrationController extends BaseApiController
      * Create employee support chat
      *
      * @param User $user The user to create chat for
+     * @param int|null $taskManagerId Task manager to add to the chat
      * @return Chat|null Created chat instance or null on failure
      */
-    protected function createEmployeeChat($user)
+    protected function createEmployeeChat($user, $taskManagerId = null)
     {
         $transaction = Yii::$app->db->beginTransaction();
 
@@ -337,6 +348,17 @@ class RegistrationController extends BaseApiController
             ]);
 
             if ($chat->save()) {
+                // Add assigned task manager to the chat
+                if ($taskManagerId) {
+                    $participant = new ChatParticipant([
+                        'chat_id' => $chat->id,
+                        'user_id' => $taskManagerId,
+                    ]);
+
+                    if (!$participant->save()) {
+                        throw new \Exception('Failed to add task manager to chat: ' . implode(', ', $participant->getFirstErrors()));
+                    }
+                }
                 $transaction->commit();
                 Yii::info("Support chat created for user {$user->id}", 'api');
                 return $chat;

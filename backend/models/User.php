@@ -25,6 +25,7 @@ use common\services\DashboardStatisticsService;
  * @property string|null $state
  * @property string|null $zip_code
  * @property int|null $substatus
+ * @property int|null $task_manager_id
  */
 class User extends \common\models\User
 {
@@ -67,7 +68,7 @@ class User extends \common\models\User
     {
         return [
             [['password_reset_token', 'verification_token', 'hr_source', 'sequential_number', 'current_project_id',
-                'administrator_id'], 'default', 'value' => null],
+                'administrator_id', 'task_manager_id'], 'default', 'value' => null],
             [['total_time_today', 'total_time_all'], 'default', 'value' => 0],
             [['status'], 'default', 'value' => self::STATUS_ACTIVE],
             [['substatus'], 'default', 'value' => self::SUBSTATUS_NOT_PROCESSED],
@@ -83,7 +84,7 @@ class User extends \common\models\User
                 'home_phone', 'address', 'city', 'state', 'country', 'zip_code', 'position_title'], 'required'],
 
             [['status', 'created_at', 'updated_at', 'substatus', 'substatus_changed_at', 'last_activity', 'sequential_number',
-                'current_project_id', 'administrator_id', 'total_time_today', 'total_time_all', 'company_id'], 'integer'],
+                'current_project_id', 'administrator_id', 'task_manager_id',  'total_time_today', 'total_time_all', 'company_id'], 'integer'],
             [['auth_key'], 'string', 'max' => 32],
             [['password_hash', 'password_reset_token', 'email', 'verification_token', 'first_name', 'last_name',
                 'position_title', 'hr_source'], 'string', 'max' => 255],
@@ -156,6 +157,7 @@ class User extends \common\models\User
             'last_activity' => 'Last Activity',
             'total_time_all' => 'Total Time Online',
             'call_center_operator_id' => 'Call Center Operator',
+            'task_manager_id' => 'Task Manager',
         ];
     }
 
@@ -266,6 +268,24 @@ class User extends \common\models\User
     public function getAdministrator()
     {
         return $this->hasOne(self::class, ['id' => 'administrator_id']);
+    }
+
+    /**
+     * Get task manager relation
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTaskManager()
+    {
+        return $this->hasOne(self::class, ['id' => 'task_manager_id']);
+    }
+
+    /**
+     * Get employees assigned to this task manager
+     * @return \yii\db\ActiveQuery
+     */
+    public function getAssignedEmployees()
+    {
+        return $this->hasMany(self::class, ['task_manager_id' => 'id']);
     }
 
     public function getCompany()
