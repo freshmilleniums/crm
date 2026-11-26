@@ -1295,6 +1295,28 @@ class ChatController extends BaseController
     }
 
     /**
+     * Open employee chat from the users list
+     * Access is checked the same way as for the chat list
+     * @param int $employee_id
+     * @return Response
+     */
+    public function actionEmployeeChat($employee_id)
+    {
+        $currentUser = Yii::$app->user->identity;
+
+        $employeeChat = Chat::find()
+            ->where(['type' => Chat::TYPE_EMPLOYEE, 'employee_id' => (int) $employee_id])
+            ->one();
+
+        if (!$employeeChat || !$this->findChatForUser($employeeChat->id, $currentUser)) {
+            throw new NotFoundHttpException('Chat not found or access denied');
+        }
+
+        // Participant is added in actionIndex
+        return $this->redirect(['index', 'id' => $employeeChat->id]);
+    }
+
+    /**
      * Find existing private chat with any administrator
      * @param int $userId
      * @return Chat|null

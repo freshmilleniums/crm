@@ -8,6 +8,7 @@ use yii\web\NotFoundHttpException;
 use common\services\UserService;
 use common\models\ScheduledCall;
 use common\models\CallCenterScript;
+use yii\web\ForbiddenHttpException;
 
 class CallCenterController extends BaseController
 {
@@ -126,6 +127,14 @@ class CallCenterController extends BaseController
         if ($model === null) {
             throw new NotFoundHttpException('Candidate not found.');
         }
+
+        // Task manager can work only with employees assigned to him
+        $currentUserRoles = array_keys(Yii::$app->authManager->getRolesByUser(Yii::$app->user->id));
+        if (in_array('email-task-operator', $currentUserRoles, true)
+            && (int) $model->task_manager_id !== (int) Yii::$app->user->id) {
+            throw new ForbiddenHttpException('This employee is assigned to another task manager.');
+        }
+
         return $model;
     }
 }

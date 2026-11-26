@@ -211,6 +211,7 @@ class UserService
 
             if ($roleName === 'employee') {
                 $dataProvider->query->with(['currentProjects', 'company', 'administrator', 'currentTasks']);
+                $this->applyTaskManagerEmployeeFilter($dataProvider->query);
             }
 
             $dataProvider->sort->attributes = array_merge($dataProvider->sort->attributes, [
@@ -236,6 +237,7 @@ class UserService
 
         if ($roleName === 'employee') {
             $query->with(['company', 'administrator']);
+            $this->applyTaskManagerEmployeeFilter($query);
         }
 
         if (in_array($roleName, ['super-administrator', 'administrator'])) {
@@ -414,9 +416,8 @@ class UserService
                     'user.substatus' => $groupData['substatuses'],
                     'user.status' => User::STATUS_ACTIVE,
                 ]);
-            if ($userRoleKey == 'phone-operator' ) {
-                $countQuery->andWhere(['user.call_center_operator_id' => $currentUserId]);
-            }
+
+            $this->applyTaskManagerEmployeeFilter($countQuery);
 
             $count = $countQuery->count();
 
@@ -618,6 +619,7 @@ class UserService
                     'user.status' => User::STATUS_ACTIVE,
                 ]);
 
+            $this->applyTaskManagerEmployeeFilter($query);
             $counts[$groupKey] = $query->count();
         }
 
@@ -647,6 +649,8 @@ class UserService
                     'user.substatus' => $groupData['substatuses'],
                     'user.status' => User::STATUS_ACTIVE,
                 ]);
+
+            $this->applyTaskManagerEmployeeFilter($dataProvider->query);
 
             // Add call attempts aggregation for "Call Again" tabs
             if ($hasAttemptsCounter) {
@@ -729,6 +733,8 @@ class UserService
                 'user.substatus' => $groupData['substatuses'],
                 'user.status' => User::STATUS_ACTIVE,
             ]);
+
+        $this->applyTaskManagerEmployeeFilter($query);
 
         $hasAttemptsCounter = in_array($groupKey, ['call_again_interview', 'call_again_contract']);
 
@@ -815,10 +821,6 @@ class UserService
     {
         $groupData = self::CALL_CENTER_STATUS_GROUPS[$groupKey];
 
-        $currentUserId = Yii::$app->user->id;
-        $userRole      = Yii::$app->authManager->getRolesByUser($currentUserId);
-        $userRoleKey   = key($userRole);
-
         if ($filterModel) {
             $filterModel->load(Yii::$app->request->queryParams);
             $dataProvider = $filterModel->search(Yii::$app->request->queryParams);
@@ -833,10 +835,7 @@ class UserService
                 ])
                 ->orderBy(['user.created_at' => SORT_DESC]);
 
-            // Phone operator sees only assigned candidates
-            if ( $userRoleKey == 'phone-operator') {
-                $dataProvider->query->andWhere(['user.call_center_operator_id' => $currentUserId]);
-            }
+            $this->applyTaskManagerEmployeeFilter($dataProvider->query);
 
             $dataProvider->sort->attributes = array_merge($dataProvider->sort->attributes, [
                 'id'           => ['asc' => ['user.id' => SORT_ASC],           'desc' => ['user.id' => SORT_DESC]],
@@ -862,10 +861,7 @@ class UserService
                 'user.status' => User::STATUS_ACTIVE,
             ]);
 
-        // Phone operator sees only assigned candidates
-        if ( $userRoleKey == 'phone-operator') {
-            $query->andWhere(['user.call_center_operator_id' => $currentUserId]);
-        }
+        $this->applyTaskManagerEmployeeFilter($query);
 
         $query->orderBy(['user.created_at' => SORT_DESC]);
 
@@ -1116,5 +1112,21 @@ class UserService
             ->where(['id' => $subQuery])
             ->indexBy('user_id')
             ->all();
+    }
+
+    /**
+     * Task manager sees only employees assigned to him, other roles are not restricted here
+     * Query must use "user" table name or alias
+     * @param \yii\db\ActiveQuery $query
+     */
+    private function applyTaskManagerEmployeeFilter($query): void
+    {
+        $currentUserId = Yii::$app->user->id;
+        $userRole      = Yii::$app->authManager->getRolesByUser($currentUserId);
+        $userRoleKey   = key($userRole);
+
+        if ($userRoleKey === 'email-task-operator') {
+            $query->andWhere(['user.task_manager_id' => $currentUserId]);
+        }
     }
 }

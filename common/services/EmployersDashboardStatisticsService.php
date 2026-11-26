@@ -80,10 +80,11 @@ class EmployersDashboardStatisticsService
      * Get employee counts grouped by status group
      *
      * @param int|null $administratorId Filter by administrator (for admin dashboard)
-     * @param int|null $callCenterOperatorId Filter by call center operator (for phone-operator dashboard)
+     * @param int|null $callCenterOperatorId Filter by call center operator
+     * @param int|null $taskManagerId Filter by task manager (for task manager dashboard)
      * @return array [groupKey => ['label' => ..., 'count' => ...]]
      */
-    public function getEmployeeStatusCounts(?int $administratorId = null, ?int $callCenterOperatorId = null): array
+    public function getEmployeeStatusCounts(?int $administratorId = null, ?int $callCenterOperatorId = null, ?int $taskManagerId = null): array
     {
         $counts = [];
 
@@ -97,6 +98,10 @@ class EmployersDashboardStatisticsService
 
             if ($callCenterOperatorId !== null) {
                 $query->andWhere(['user.call_center_operator_id' => $callCenterOperatorId]);
+            }
+
+            if ($taskManagerId !== null) {
+                $query->andWhere(['user.task_manager_id' => $taskManagerId]);
             }
 
             $counts[$groupKey] = [
@@ -259,9 +264,10 @@ class EmployersDashboardStatisticsService
      * Get training progress summary across all candidates currently in training
      *
      * @param int|null $administratorId Filter by administrator
+     * @param int|null $taskManagerId Filter by task manager
      * @return array
      */
-    public function getTrainingProgressSummary(?int $administratorId = null): array
+    public function getTrainingProgressSummary(?int $administratorId = null, ?int $taskManagerId = null): array
     {
         $modules = TrainingModule::find()
             ->where(['is_active' => 1])
@@ -276,6 +282,10 @@ class EmployersDashboardStatisticsService
 
         if ($administratorId !== null) {
             $query->andWhere(['u.administrator_id' => $administratorId]);
+        }
+
+        if ($taskManagerId !== null) {
+            $query->andWhere(['u.task_manager_id' => $taskManagerId]);
         }
 
         $progressRows = $query->all();

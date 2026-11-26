@@ -701,7 +701,7 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                         ],
                                                         [
                                                             'class'    => 'yii\grid\ActionColumn',
-                                                            'template' => '{view} {schedule}',
+                                                            'template' => '{view} {schedule} {chat}',
                                                             'buttons'  => [
                                                                 'view' => function($url, $model, $key) {
                                                                     return Html::a(
@@ -723,6 +723,21 @@ $this->registerJs($script, \yii\web\View::POS_END);
                                                                             'data-pjax' => '0',
                                                                             'class'     => 'btn-schedule-call',
                                                                             'data-id'   => $model->id,
+                                                                        ]
+                                                                    );
+                                                                },
+                                                                'chat' => function($url, $model, $key) {
+                                                                    $currentUserRoles = array_keys(Yii::$app->authManager->getRolesByUser(Yii::$app->user->id));
+                                                                    if (!array_intersect($currentUserRoles, ['super-administrator', 'administrator', 'email-task-operator'])) {
+                                                                        return '';
+                                                                    }
+
+                                                                    return Html::a(
+                                                                        '<i class="fas fa-paper-plane text-primary"></i>',
+                                                                        Url::to(['/chat/employee-chat', 'employee_id' => $model->id]),
+                                                                        [
+                                                                            'title'     => 'Open Chat',
+                                                                            'data-pjax' => '0',
                                                                         ]
                                                                     );
                                                                 },

@@ -1517,7 +1517,7 @@ $this->registerJs($scriptExtra, \yii\web\View::POS_END);
                                                         'delete' => Yii::$app->user->can('deleteUser'),
                                                     ],
                                                     'template' => $tab['role'] === 'employee'
-                                                        ? '{view} {update} {change-password} {delete} <br> {add-project} {add-task} {send-template}'
+                                                        ? '{view} {update} {change-password} {delete} <br> {add-project} {add-task} {send-template} {chat}'
                                                         : '{view} {update} {change-password} {delete}',
                                                     'buttons' => [
                                                         'view' => function ($url, $model, $key) {
@@ -1589,6 +1589,20 @@ $this->registerJs($scriptExtra, \yii\web\View::POS_END);
                                                                     'title'     => 'Send Template',
                                                                     'class'     => 'send-template-btn',
                                                                     'data-id'   => $model->id,
+                                                                    'data-pjax' => '0',
+                                                                ]
+                                                            );
+                                                        },
+                                                        'chat' => function($url, $model, $key) use ($currentUserRoles) {
+                                                            if (!array_intersect($currentUserRoles, ['super-administrator', 'administrator', 'email-task-operator'])) {
+                                                                return '';
+                                                            }
+
+                                                            return Html::a(
+                                                                '<i class="fas fa-paper-plane text-primary"></i>',
+                                                                Url::to(['chat/employee-chat', 'employee_id' => $model->id]),
+                                                                [
+                                                                    'title'     => 'Open Chat',
                                                                     'data-pjax' => '0',
                                                                 ]
                                                             );

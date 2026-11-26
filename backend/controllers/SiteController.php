@@ -126,7 +126,7 @@ class SiteController extends BaseController
             $operatorId = Yii::$app->user->id;
 
             return $this->render('dashboard_phone_operator', [
-                'employeeStatusCounts' => $stats->getEmployeeStatusCounts(null, $operatorId),
+                'employeeStatusCounts' => $stats->getEmployeeStatusCounts(),
                 'scheduledCalls' => $stats->getScheduledCallsForOperator($operatorId),
                 'statsService' => $stats,
             ]);
@@ -136,7 +136,7 @@ class SiteController extends BaseController
             $stats = new EmployersDashboardStatisticsService();
 
             $relevantGroups = ['contract_sent', 'training', 'active_employees', 'refused', 'archived'];
-            $allCounts = $stats->getEmployeeStatusCounts();
+            $allCounts = $stats->getEmployeeStatusCounts(null, null, Yii::$app->user->id);
 
             // Filter only relevant groups for this role
             $employeeStatusCounts = array_intersect_key($allCounts, array_flip($relevantGroups));

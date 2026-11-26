@@ -395,10 +395,29 @@ class UsersController extends BaseController
     protected function findModel($id)
     {
         if (($model = User::findOne(['id' => $id])) !== null) {
+            $this->ensureTaskManagerHasAccessToEmployee($model);
             return $model;
         }
 
         throw new NotFoundHttpException('The requested page does not exist.');
+    }
+
+    /**
+     * Task manager can work only with employees assigned to him
+     * @param User $model
+     * @throws \yii\web\ForbiddenHttpException
+     */
+    protected function ensureTaskManagerHasAccessToEmployee(User $model)
+    {
+        $currentUserRoles = array_keys(Yii::$app->authManager->getRolesByUser(Yii::$app->user->id));
+
+        if (!in_array('email-task-operator', $currentUserRoles, true)) {
+            return;
+        }
+
+        if ($model->role === 'employee' && (int) $model->task_manager_id !== (int) Yii::$app->user->id) {
+            throw new \yii\web\ForbiddenHttpException('This employee is assigned to another task manager.');
+        }
     }
 
     public function actionAjaxValidation($id) {
@@ -422,10 +441,14 @@ class UsersController extends BaseController
 
         $query = isset($_GET['q']) ? $_GET['q'] : '';
 
+        $currentUserRoles = array_keys(Yii::$app->authManager->getRolesByUser(Yii::$app->user->id));
+        $taskManagerId    = in_array('email-task-operator', $currentUserRoles, true) ? Yii::$app->user->id : null;
+
         $employees = User::find()
             ->innerJoin('auth_assignment', 'auth_assignment.user_id = user.id')
             ->where(['auth_assignment.item_name' => 'employee'])
-           // ->andWhere(['user.status' => User::STATUS_ACTIVE])
+            // ->andWhere(['user.status' => User::STATUS_ACTIVE])
+            ->andFilterWhere(['user.task_manager_id' => $taskManagerId])
             ->andFilterWhere(['like', "CONCAT(user.first_name, ' ', user.last_name)", $query])
             ->limit(20)
             ->all();
@@ -1806,11 +1829,15 @@ class UsersController extends BaseController
             return ['items' => []];
         }
 
+        $currentUserRoles = array_keys(Yii::$app->authManager->getRolesByUser(Yii::$app->user->id));
+        $taskManagerId    = in_array('email-task-operator', $currentUserRoles, true) ? Yii::$app->user->id : null;
+
         $users = User::find()
             ->alias('u')
             ->innerJoin('auth_assignment aa', 'aa.user_id = u.id')
             ->where(['aa.item_name' => 'employee'])
             ->andWhere(['u.status' => User::STATUS_ACTIVE])
+            ->andFilterWhere(['u.task_manager_id' => $taskManagerId])
             ->andWhere([
                 'or',
                 ['like', 'u.first_name',   $q],
